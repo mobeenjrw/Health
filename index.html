@@ -1,0 +1,2035 @@
+<!DOCTYPE html>
+<html lang="ur" dir="rtl" data-theme="dark" data-lang="ur">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0f0d">
+<meta name="description" content="NutriPak — Pakistani Nutrition Tracker">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>NutriPak v3</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600;700&family=Noto+Sans+Arabic:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+  from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, collection, getDocs, query, orderBy, limit }
+  from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyACZmgeTeBmA37MHBWoPRq__suPA3V2SW8",
+  authDomain: "health-meter-94f3e.firebaseapp.com",
+  projectId: "health-meter-94f3e",
+  storageBucket: "health-meter-94f3e.firebasestorage.app",
+  messagingSenderId: "777115544753",
+  appId: "1:777115544753:web:870c45e81b91f0b7b18690",
+  measurementId: "G-3VKGK9RWF4"
+};
+const app = initializeApp(firebaseConfig);
+window._fbAuth = getAuth(app);
+window._fbDb = getFirestore(app);
+window._fbFns = { createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged, doc, setDoc, getDoc, collection, getDocs, query, orderBy, limit };
+
+// Auth state observer
+onAuthStateChanged(window._fbAuth, async (user) => {
+  if (user && !window._appReady) {
+    try {
+      const snap = await getDoc(doc(window._fbDb, 'users', user.uid));
+      if (snap.exists()) {
+        window._pendingFirebaseUser = { uid: user.uid, ...snap.data() };
+        if (typeof window.onFirebaseLogin === 'function') window.onFirebaseLogin(window._pendingFirebaseUser);
+      }
+    } catch(e) { console.log('Profile not found'); }
+  }
+});
+</script>
+
+<style>
+/* ===== CSS VARIABLES ===== */
+:root[data-theme="dark"] {
+  --bg:#09100c; --surface:#111b14; --surface2:#162019; --border:#1d2e21;
+  --accent:#22c55e; --accent2:#4ade80; --accent3:#bbf7d0;
+  --warn:#f59e0b; --danger:#ef4444; --info:#38bdf8;
+  --text:#e2ffe9; --text2:#9dc4a6; --text3:#4a7a54;
+  --shadow:0 4px 20px rgba(0,0,0,0.5);
+  --glass:rgba(17,27,20,0.8);
+  --water-fill:linear-gradient(180deg,#38bdf8,#0284c7);
+  --water-border:#38bdf8;
+}
+:root[data-theme="light"] {
+  --bg:#f0fdf4; --surface:#ffffff; --surface2:#dcfce7; --border:#bbf7d0;
+  --accent:#16a34a; --accent2:#22c55e; --accent3:#4ade80;
+  --warn:#d97706; --danger:#dc2626; --info:#0284c7;
+  --text:#14532d; --text2:#166534; --text3:#4ade80;
+  --shadow:0 4px 20px rgba(22,101,52,0.12);
+  --glass:rgba(255,255,255,0.85);
+  --water-fill:linear-gradient(180deg,#60c8f5,#0ea5e9);
+  --water-border:#0ea5e9;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+
+body{
+  font-family:'Noto Sans Arabic',sans-serif;
+  background:var(--bg); color:var(--text);
+  min-height:100vh; overflow-x:hidden;
+  transition:background .3s,color .3s;
+}
+[data-lang="en"]{direction:ltr}
+[data-lang="ur"]{direction:rtl}
+[data-lang="en"] body,[data-lang="en"] input,[data-lang="en"] select,[data-lang="en"] button{font-family:'Poppins',sans-serif}
+
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse at 10% 10%,rgba(34,197,94,.06) 0%,transparent 55%),
+             radial-gradient(ellipse at 90% 90%,rgba(34,197,94,.04) 0%,transparent 55%);
+}
+
+/* ===== TOP BAR ===== */
+#topbar{
+  position:fixed;top:0;left:0;right:0;height:50px;
+  background:var(--glass);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 14px;z-index:300;
+}
+.top-logo{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:700;color:var(--accent);display:flex;align-items:center;gap:6px}
+.top-controls{display:flex;align-items:center;gap:6px}
+.icon-btn{
+  width:34px;height:34px;border-radius:8px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text2);font-size:16px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all .2s;
+}
+.icon-btn:hover{border-color:var(--accent);color:var(--accent)}
+.lang-pill{
+  padding:5px 10px;border-radius:20px;border:1px solid var(--border);
+  background:var(--surface);color:var(--text2);font-size:11px;font-weight:600;
+  cursor:pointer;font-family:'JetBrains Mono',monospace;transition:all .2s;letter-spacing:.5px;
+}
+.lang-pill:hover,.lang-pill.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ===== INSTALL BANNER ===== */
+#install-banner{
+  display:none;position:fixed;bottom:0;left:0;right:0;
+  background:var(--accent);color:#fff;padding:12px 16px;
+  z-index:500;flex-direction:row;align-items:center;justify-content:space-between;
+  font-size:13px;font-weight:600;
+}
+#install-banner button{padding:6px 14px;background:#fff;color:var(--accent);border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px}
+
+/* ===== AUTH ===== */
+#auth-screen{
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;padding:70px 16px 20px;position:relative;z-index:1;
+}
+.auth-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:24px;padding:32px;width:100%;max-width:420px;
+  box-shadow:var(--shadow);
+}
+.auth-logo{text-align:center;margin-bottom:24px}
+.auth-logo .icon{font-size:42px;display:block;margin-bottom:6px}
+.auth-logo h1{font-family:'JetBrains Mono',monospace;font-size:24px;color:var(--accent);letter-spacing:-1px}
+.auth-logo p{color:var(--text3);font-size:12px;margin-top:3px}
+.auth-tabs{display:flex;background:var(--bg);border-radius:12px;padding:3px;margin-bottom:20px}
+.atab{flex:1;padding:9px;text-align:center;border-radius:9px;cursor:pointer;font-size:13px;color:var(--text3);transition:all .2s}
+.atab.active{background:var(--accent);color:#fff;font-weight:700}
+
+/* ===== FORM ===== */
+.fg{margin-bottom:12px}
+.fg label{display:block;font-size:11px;color:var(--text3);margin-bottom:4px}
+.fg input,.fg select{
+  width:100%;background:var(--bg);border:1px solid var(--border);
+  border-radius:10px;padding:10px 13px;color:var(--text);font-size:13px;
+  outline:none;transition:border-color .2s;font-family:inherit;
+}
+.fg input:focus,.fg select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.12)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.cb-row{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.cb-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2);cursor:pointer;padding:6px 8px;border-radius:8px;border:1px solid var(--border);transition:all .2s}
+.cb-item:has(input:checked){border-color:var(--warn);background:rgba(245,158,11,.08);color:var(--warn)}
+.cb-item input{accent-color:var(--warn)}
+
+.btn{
+  width:100%;padding:12px;background:var(--accent);color:#fff;
+  border:none;border-radius:10px;font-size:14px;font-weight:700;
+  cursor:pointer;font-family:inherit;transition:all .2s;margin-top:6px;
+}
+[data-theme="dark"] .btn{color:#000}
+.btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn-ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+[data-theme="dark"] .btn-ghost{color:var(--accent)}
+.btn-ghost:hover{background:rgba(34,197,94,.1)}
+.btn-sm{
+  padding:6px 12px;font-size:11px;background:rgba(34,197,94,.1);
+  color:var(--accent);border:1px solid rgba(34,197,94,.25);border-radius:8px;
+  cursor:pointer;font-family:inherit;transition:all .2s;white-space:nowrap;
+}
+.btn-sm:hover{background:rgba(34,197,94,.2)}
+.btn-danger-sm{padding:6px 12px;font-size:11px;background:transparent;color:var(--danger);border:1px solid var(--danger);border-radius:8px;cursor:pointer;font-family:inherit;transition:all .2s}
+
+/* ===== MAIN APP ===== */
+#main-app{display:none;position:relative;z-index:1;padding-top:50px}
+
+/* ===== GOAL BANNER ===== */
+#goal-banner{
+  background:var(--surface2);border-bottom:1px solid var(--border);
+  padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.gb-item{display:flex;flex-direction:column;gap:2px}
+.gb-lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.gb-val{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:var(--accent)}
+.gb-bar-wrap{flex:1;min-width:80px}
+.gb-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-top:4px}
+.gb-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .5s}
+.deficit-chip{padding:3px 9px;border-radius:12px;font-family:'JetBrains Mono',monospace;font-size:11px;background:rgba(34,197,94,.12);color:var(--accent);border:1px solid rgba(34,197,94,.25)}
+.deficit-chip.over{background:rgba(239,68,68,.12);color:var(--danger);border-color:rgba(239,68,68,.25)}
+
+/* ===== NAV ===== */
+#nav-tabs{
+  display:flex;background:var(--surface);border-bottom:1px solid var(--border);
+  overflow-x:auto;scrollbar-width:none;position:sticky;
+  top:50px;z-index:200;
+}
+#nav-tabs::-webkit-scrollbar{display:none}
+.ntab{
+  padding:11px 16px;font-size:12px;color:var(--text3);cursor:pointer;
+  white-space:nowrap;border-bottom:2px solid transparent;transition:all .2s;
+  display:flex;align-items:center;gap:5px;
+}
+.ntab.active{color:var(--accent);border-bottom-color:var(--accent);background:rgba(34,197,94,.04)}
+
+/* ===== CONTENT ===== */
+.content{padding:14px;max-width:860px;margin:0 auto}
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* ===== CARDS ===== */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
+.card-title{font-size:14px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:7px;color:var(--text)}
+.flex-between{display:flex;justify-content:space-between;align-items:center}
+
+/* ===== QUICK ADD ===== */
+.quick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:8px}
+.quick-item{
+  background:var(--surface2);border:1px solid var(--border);border-radius:12px;
+  padding:10px 6px;text-align:center;cursor:pointer;transition:all .2s;
+}
+.quick-item:hover{border-color:var(--accent);transform:translateY(-2px)}
+.qi-icon{font-size:22px;margin-bottom:4px}
+.qi-name{font-size:10px;color:var(--text2);line-height:1.3}
+.qi-cal{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--accent);margin-top:2px}
+
+/* ===== SEARCH ===== */
+.search-wrap{position:relative;margin-bottom:10px}
+.search-wrap input{
+  width:100%;background:var(--bg);border:1px solid var(--border);
+  border-radius:12px;padding:11px 44px 11px 14px;color:var(--text);
+  font-size:13px;outline:none;transition:border-color .2s;font-family:inherit;
+}
+[data-lang="ur"] .search-wrap input{padding:11px 14px 11px 44px}
+.search-wrap input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(34,197,94,.1)}
+.s-icon{position:absolute;right:13px;top:50%;transform:translateY(-50%);font-size:16px;color:var(--text3)}
+[data-lang="ur"] .s-icon{right:auto;left:13px}
+.s-results{display:none;background:var(--surface);border:1px solid var(--border);border-radius:12px;max-height:260px;overflow-y:auto;margin-top:4px;box-shadow:var(--shadow);z-index:50;position:relative}
+.s-item{padding:10px 13px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .15s;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.s-item:hover{background:var(--surface2)}
+.s-item:last-child{border-bottom:none}
+.s-name{font-size:13px;flex:1}
+.s-meta{display:flex;align-items:center;gap:6px}
+.s-cal{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent)}
+.warn-badge{font-size:14px;title:"High sugar warning"}
+
+/* ===== OIL TOGGLE ===== */
+.oil-toggle{
+  display:flex;align-items:center;gap:8px;padding:8px 12px;
+  background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);
+  border-radius:10px;margin-bottom:10px;cursor:pointer;
+}
+.oil-toggle input{accent-color:var(--warn)}
+.oil-toggle label{font-size:12px;color:var(--warn);cursor:pointer;flex:1}
+.oil-selector{display:none;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.oil-selector.show{display:grid}
+
+/* ===== MEAL SECTIONS ===== */
+.meal-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:10px;box-shadow:var(--shadow)}
+.meal-hdr{padding:11px 13px;background:var(--surface2);display:flex;justify-content:space-between;align-items:center}
+.meal-title{font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px}
+.meal-kcal{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)}
+.meal-items{padding:6px}
+.meal-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;transition:background .15s}
+.meal-item:hover{background:var(--surface2)}
+.mi-name{font-size:12px;flex:1;display:flex;align-items:center;gap:6px}
+.mi-info{display:flex;align-items:center;gap:8px}
+.mi-macros{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text3)}
+.mi-cal{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--accent)}
+.del-btn{background:none;border:none;color:var(--danger);cursor:pointer;font-size:13px;opacity:.45;transition:opacity .2s;padding:2px 4px}
+.del-btn:hover{opacity:1}
+.empty-meal{padding:10px;color:var(--text3);font-size:12px;text-align:center}
+
+/* ===== STATS GRID ===== */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:12px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:13px;position:relative;overflow:hidden;box-shadow:var(--shadow)}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--sc,var(--accent));border-radius:3px 3px 0 0}
+.st-lbl{font-size:10px;color:var(--text3);margin-bottom:5px}
+.st-val{font-family:'JetBrains Mono',monospace;font-size:21px;font-weight:700;color:var(--sc,var(--accent))}
+.st-unit{font-size:10px;color:var(--text3);margin-top:1px}
+.st-bar{height:3px;background:var(--border);border-radius:2px;margin-top:7px;overflow:hidden}
+.st-bar-fill{height:100%;border-radius:2px;background:var(--sc,var(--accent));transition:width .5s}
+
+/* ===== NUTRIENTS ===== */
+.nut-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:9px}
+.nut-item{text-align:center;padding:11px;background:var(--surface2);border-radius:12px;border:1px solid var(--border)}
+.nut-name{font-size:10px;color:var(--text3);margin-bottom:3px}
+.nut-val{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:700}
+.nut-tgt{font-size:9px;color:var(--text3);margin-top:1px}
+.nb{height:3px;background:var(--border);border-radius:2px;margin-top:5px;overflow:hidden}
+.nb-fill{height:100%;border-radius:2px;transition:width .5s}
+.nb-pct{font-size:9px;margin-top:2px;font-family:'JetBrains Mono',monospace}
+
+/* ===== WATER TRACKER (FIXED) ===== */
+.water-container{padding:8px 0}
+.water-label{font-size:12px;color:var(--text3);margin-bottom:10px}
+.water-grid{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:12px;
+  max-width:300px;
+}
+.wglass{
+  aspect-ratio:2/3;border:2.5px solid var(--border);
+  border-radius:4px 4px 12px 12px;cursor:pointer;
+  position:relative;overflow:hidden;transition:border-color .25s;
+  background:var(--surface2);
+}
+.wglass::before{
+  content:'💧';position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%);font-size:18px;
+  opacity:.2;transition:opacity .25s;pointer-events:none;
+}
+.wglass.filled{border-color:var(--water-border);}
+.wglass.filled::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;
+  height:100%;background:var(--water-fill);
+  animation:fill-up .35s ease forwards;
+}
+.wglass.filled::before{opacity:0}
+@keyframes fill-up{from{height:0}to{height:100%}}
+.water-stats{margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.water-count{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:#38bdf8}
+.water-ml{font-size:12px;color:var(--text3)}
+.water-goal{font-size:11px;color:var(--text3);margin-top:4px}
+
+/* ===== EXERCISE ===== */
+.ex-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-bottom:12px}
+.ex-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center;cursor:pointer;transition:all .2s}
+.ex-card:hover,.ex-card.sel{border-color:var(--accent);background:rgba(34,197,94,.08)}
+.ex-icon{font-size:24px;margin-bottom:4px}
+.ex-name{font-size:10px;color:var(--text2);line-height:1.3}
+.ex-rate{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--accent);margin-top:2px}
+.walk-tabs{display:flex;background:var(--surface2);border-radius:10px;padding:3px;margin-bottom:10px}
+.wtab{flex:1;padding:7px;text-align:center;border-radius:7px;cursor:pointer;font-size:11px;color:var(--text3);transition:all .2s}
+.wtab.active{background:var(--accent);color:#fff}
+.ex-log-item{display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-radius:8px;background:var(--surface2);margin-bottom:6px}
+.eli-name{font-size:12px;display:flex;align-items:center;gap:6px}
+.eli-cal{font-family:'JetBrains Mono',monospace;font-size:12px;color:#38bdf8}
+
+/* ===== BEVERAGES ===== */
+.bev-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px}
+.bev-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px;text-align:center;cursor:pointer;transition:all .2s}
+.bev-card:hover{border-color:#38bdf8}
+.bev-icon{font-size:22px;margin-bottom:3px}
+.bev-name{font-size:10px;color:var(--text2)}
+.bev-cal{font-family:'JetBrains Mono',monospace;font-size:9px;color:#38bdf8;margin-top:2px}
+
+/* ===== GOALS / DEFICIT ===== */
+.deficit-card{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:14px;padding:14px;margin-top:10px}
+.def-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(34,197,94,.15)}
+.def-row:last-child{border-bottom:none}
+.def-lbl{font-size:12px;color:var(--text2)}
+.def-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700}
+.pred-box{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:10px;padding:11px;margin-top:10px;text-align:center;font-size:12px;color:var(--warn)}
+
+/* ===== CHART ===== */
+.chart-wrap{position:relative;height:200px;width:100%}
+
+/* ===== REPORT ===== */
+.rep-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border)}
+.rep-score{font-family:'JetBrains Mono',monospace;font-size:34px;font-weight:700}
+.rep-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+.rep-row:last-child{border-bottom:none}
+.rep-lbl{font-size:12px;color:var(--text2)}
+.rep-vals{display:flex;gap:8px;align-items:center;font-family:'JetBrains Mono',monospace;font-size:11px}
+
+/* ===== MODALS ===== */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1000;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:22px;width:100%;max-width:440px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.modal-title{font-size:16px;font-weight:700;margin-bottom:16px;color:var(--accent)}
+.food-preview{background:var(--surface2);border-radius:10px;padding:11px;margin-bottom:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center}
+.pv-val{font-family:'JetBrains Mono',monospace;font-size:14px;font-weight:700}
+.pv-lbl{font-size:9px;color:var(--text3);margin-top:2px}
+
+/* ===== ALERTS ===== */
+.alert{padding:10px 13px;border-radius:10px;margin-bottom:9px;font-size:12px;display:flex;align-items:flex-start;gap:8px}
+.a-warn{background:rgba(245,158,11,.09);border:1px solid rgba(245,158,11,.28);color:var(--warn)}
+.a-danger{background:rgba(239,68,68,.09);border:1px solid rgba(239,68,68,.28);color:var(--danger)}
+.a-ok{background:rgba(34,197,94,.09);border:1px solid rgba(34,197,94,.28);color:var(--accent)}
+.a-info{background:rgba(56,189,248,.09);border:1px solid rgba(56,189,248,.28);color:var(--info)}
+
+/* ===== ANALYSIS BOX ===== */
+.analysis-box{background:linear-gradient(135deg,var(--surface2),var(--surface));border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px}
+.analysis-text{font-size:13px;line-height:2;color:var(--text2)}
+.loading-anim{display:flex;align-items:center;gap:8px;color:var(--text3);font-size:12px}
+.dots{display:flex;gap:4px}
+.dots span{width:5px;height:5px;background:var(--accent);border-radius:50%;animation:dp 1.2s infinite}
+.dots span:nth-child(2){animation-delay:.2s}
+.dots span:nth-child(3){animation-delay:.4s}
+@keyframes dp{0%,60%,100%{transform:scale(1);opacity:1}30%{transform:scale(1.5);opacity:.7}}
+
+/* ===== PROFILE ===== */
+.prof-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:9px}
+.pchip{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:11px 13px}
+.pchip-lbl{font-size:10px;color:var(--text3)}
+.pchip-val{font-family:'JetBrains Mono',monospace;font-size:17px;font-weight:700;color:var(--accent);margin-top:3px}
+.tag{display:inline-block;padding:3px 9px;border-radius:12px;font-size:10px;margin:2px}
+.tag-g{background:rgba(34,197,94,.12);color:var(--accent);border:1px solid rgba(34,197,94,.25)}
+.tag-y{background:rgba(245,158,11,.12);color:var(--warn);border:1px solid rgba(245,158,11,.25)}
+.tag-r{background:rgba(239,68,68,.12);color:var(--danger);border:1px solid rgba(239,68,68,.25)}
+
+.hidden{display:none!important}
+.mt8{margin-top:8px}
+.mt12{margin-top:12px}
+.divider{height:1px;background:var(--border);margin:12px 0}
+.muted{color:var(--text3);font-size:11px}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <div class="top-logo">🥗 <span>NutriPak</span></div>
+  <div class="top-controls">
+    <div class="lang-pill" id="lang-pill" onclick="toggleLang()">EN</div>
+    <div class="icon-btn" onclick="toggleTheme()" id="theme-btn">☀️</div>
+    <div class="icon-btn" onclick="handleLogout()" id="logout-btn" style="display:none;color:var(--danger)">⏏</div>
+  </div>
+</div>
+
+<!-- PWA INSTALL BANNER -->
+<div id="install-banner">
+  <span id="install-text">📱 ہوم اسکرین پر انسٹال کریں</span>
+  <div style="display:flex;gap:8px">
+    <button onclick="installPWA()">Install</button>
+    <button onclick="document.getElementById('install-banner').style.display='none'" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,.5)">✕</button>
+  </div>
+</div>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <span class="icon">🥗</span>
+      <h1>NutriPak</h1>
+      <p id="auth-tagline">پاکستانی غذائی ٹریکر — v3</p>
+    </div>
+    <div class="auth-tabs">
+      <div class="atab active" id="atab-login" onclick="showAuthTab('login')">لاگ ان</div>
+      <div class="atab" id="atab-reg" onclick="showAuthTab('register')">رجسٹر</div>
+    </div>
+
+    <div id="login-form">
+      <div class="fg"><label>Email</label><input type="email" id="l-email" placeholder="you@email.com" dir="ltr"></div>
+      <div class="fg"><label data-i="password">پاسورڈ</label><input type="password" id="l-pass" placeholder="••••••••" dir="ltr"></div>
+      <button class="btn" onclick="doLogin()" data-i="login_btn">🔐 لاگ ان</button>
+      <button class="btn btn-ghost mt8" onclick="doDemo()" data-i="demo_btn">👤 Demo آزمائیں</button>
+    </div>
+
+    <div id="reg-form" class="hidden">
+      <div class="g2">
+        <div class="fg"><label data-i="name">نام</label><input type="text" id="r-name" placeholder="آپ کا نام"></div>
+        <div class="fg"><label>Email</label><input type="email" id="r-email" placeholder="email" dir="ltr"></div>
+      </div>
+      <div class="g2">
+        <div class="fg"><label data-i="password">پاسورڈ</label><input type="password" id="r-pass" placeholder="••••••" dir="ltr"></div>
+        <div class="fg"><label data-i="age">عمر (سال)</label><input type="number" id="r-age" placeholder="40" dir="ltr"></div>
+      </div>
+      <div class="g3">
+        <div class="fg"><label data-i="weight">وزن kg</label><input type="number" id="r-wt" placeholder="70" dir="ltr"></div>
+        <div class="fg"><label data-i="height">قد cm</label><input type="number" id="r-ht" placeholder="170" dir="ltr"></div>
+        <div class="fg"><label data-i="goal_wt">ہدف kg</label><input type="number" id="r-gwt" placeholder="65" dir="ltr"></div>
+      </div>
+      <div class="g2">
+        <div class="fg"><label data-i="gender">جنس</label>
+          <select id="r-gen">
+            <option value="male" data-i="male">مرد</option>
+            <option value="female" data-i="female">عورت</option>
+          </select>
+        </div>
+        <div class="fg"><label data-i="activity">سرگرمی</label>
+          <select id="r-act">
+            <option value="sedentary" data-i="sedentary">کم (بیٹھنا)</option>
+            <option value="light" data-i="light">تھوڑا</option>
+            <option value="moderate" selected data-i="moderate">درمیانہ</option>
+            <option value="active" data-i="active">زیادہ</option>
+          </select>
+        </div>
+      </div>
+      <div class="fg">
+        <label data-i="conditions">بیماریاں</label>
+        <div class="cb-row">
+          <label class="cb-item"><input type="checkbox" id="c-pd" value="prediabetic"><span data-i="prediabetic">پری ڈائبٹک</span></label>
+          <label class="cb-item"><input type="checkbox" id="c-dm" value="diabetes"><span data-i="diabetes">ذیابیطس</span></label>
+          <label class="cb-item"><input type="checkbox" id="c-fl" value="fatty_liver"><span data-i="fatty_liver">فیٹی لیور</span></label>
+          <label class="cb-item"><input type="checkbox" id="c-bp" value="hypertension"><span data-i="hypertension">بلڈ پریشر</span></label>
+          <label class="cb-item"><input type="checkbox" id="c-tg" value="high_triglycerides"><span data-i="high_tg">TG زیادہ</span></label>
+          <label class="cb-item"><input type="checkbox" id="c-ht" value="heart"><span data-i="heart">دل</span></label>
+        </div>
+      </div>
+      <button class="btn" onclick="doRegister()" data-i="register_btn">✅ رجسٹر کریں</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="main-app">
+
+  <!-- GOAL BANNER -->
+  <div id="goal-banner">
+    <div class="gb-item gb-bar-wrap">
+      <div class="gb-lbl" data-i="calories">کیلوریز</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="gb-bar" style="flex:1"><div class="gb-bar-fill" id="gb-fill" style="width:0%"></div></div>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text2)" id="gb-nums">0/0</span>
+      </div>
+    </div>
+    <div class="gb-item">
+      <div class="gb-lbl" data-i="deficit">کمی</div>
+      <div class="deficit-chip" id="def-chip">-- kcal</div>
+    </div>
+    <div class="gb-item">
+      <div class="gb-lbl" data-i="weekly">فی ہفتہ</div>
+      <div class="gb-val" id="weekly-loss">--</div>
+    </div>
+    <div class="gb-item" id="header-user-info" style="margin-right:auto">
+      <div class="gb-lbl" id="h-name" style="font-size:11px;color:var(--text2)"></div>
+      <div class="gb-lbl" id="h-date"></div>
+    </div>
+  </div>
+
+  <!-- NAV -->
+  <div id="nav-tabs">
+    <div class="ntab active" onclick="showTab('dashboard')">📊 <span data-i="dashboard">ڈیش بورڈ</span></div>
+    <div class="ntab" onclick="showTab('food')">🍽️ <span data-i="food">کھانا</span></div>
+    <div class="ntab" onclick="showTab('exercise')">🏃 <span data-i="exercise">ورزش</span></div>
+    <div class="ntab" onclick="showTab('water')">💧 <span data-i="water">پانی</span></div>
+    <div class="ntab" onclick="showTab('goals')">🎯 <span data-i="goals">اہداف</span></div>
+    <div class="ntab" onclick="showTab('report')">📋 <span data-i="report">رپورٹ</span></div>
+    <div class="ntab" onclick="showTab('profile')">👤 <span data-i="profile">پروفائل</span></div>
+  </div>
+
+  <div class="content">
+    <div class="tab-pane active" id="pane-dashboard">
+      <div class="analysis-box">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:18px">💡</span>
+          <span style="font-size:13px;font-weight:700;color:var(--accent)" data-i="advice_title">آج کا مشورہ</span>
+        </div>
+        <div class="loading-anim" id="advice-loading"><div class="dots"><span></span><span></span><span></span></div><span data-i="loading">لوڈ ہو رہا ہے...</span></div>
+        <div class="analysis-text" id="advice-text" style="display:none"></div>
+      </div>
+      <div id="alerts-box"></div>
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="card">
+        <div class="card-title">🧪 <span data-i="nutrients_today">نیوٹرنٹس آج</span></div>
+        <div class="nut-grid" id="nut-grid"></div>
+      </div>
+      <!-- 7-Day Chart -->
+      <div class="card">
+        <div class="card-title">📈 <span data-i="trend_7days">7 دن کا ٹرینڈ</span></div>
+        <div class="chart-wrap"><canvas id="trend-chart"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="flex-between">
+          <div class="card-title" style="margin-bottom:0">📅 <span data-i="summary">خلاصہ</span></div>
+          <button class="btn-sm" onclick="showTab('report')" data-i="full_report">مکمل رپورٹ</button>
+        </div>
+        <div id="dash-summary" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+    <!-- FOOD TAB -->
+    <div class="tab-pane" id="pane-food">
+      <!-- Quick Add -->
+      <div class="card">
+        <div class="card-title">⚡ <span data-i="quick_add">فوری ایڈ</span></div>
+        <div class="quick-grid" id="quick-grid"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔍 <span data-i="search_food">کھانا تلاش کریں</span></div>
+        <div class="search-wrap">
+          <span class="s-icon">🔍</span>
+          <input type="text" id="food-search" oninput="searchFood(this.value)" data-ph-ur="پراٹھا، دال، آلو..." data-ph-en="Search food... paratha, dal...">
+        </div>
+        <div class="s-results" id="s-results"></div>
+
+        <!-- Oil Toggle -->
+        <div class="oil-toggle mt8" onclick="toggleOilSelector()">
+          <input type="checkbox" id="oil-chk" onchange="toggleOilSelector(this.checked)">
+          <label for="oil-chk" data-i="oil_toggle">🫙 کڑھائی میں تیل/گھی بھی ایڈ کریں؟</label>
+        </div>
+        <div class="oil-selector" id="oil-selector">
+          <div class="fg"><label data-i="fat_type">تیل کی قسم</label>
+            <select id="oil-type">
+              <option value="ghee_desi" data-i="desi_ghee">دیسی گھی</option>
+              <option value="ghee_dalda" data-i="dalda">ڈالڈا</option>
+              <option value="oil_cooking" data-i="cooking_oil">کھانا پکانے کا تیل</option>
+              <option value="butter" data-i="butter">مکھن</option>
+            </select>
+          </div>
+          <div class="fg"><label data-i="oil_tbsp">چمچ (تقریباً)</label>
+            <input type="number" id="oil-tbsp" value="2" min="0" max="10" dir="ltr">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+          <button class="btn-sm" onclick="openCustomModal()" data-i="add_custom">➕ نئی چیز</button>
+          <button class="btn-sm" onclick="openAIModal()" data-i="not_in_list">🔍 لسٹ میں نہیں؟</button>
+        </div>
+      </div>
+
+      <div id="meal-sections"></div>
+    </div>
+
+    <!-- EXERCISE TAB -->
+    <div class="tab-pane" id="pane-exercise">
+      <div class="card">
+        <div class="card-title">🚶 <span data-i="walk_tracker">واک ٹریکر</span></div>
+        <div class="walk-tabs" id="walk-tabs">
+          <div class="wtab active" onclick="setWalkMode('steps')" data-i="steps">قدم</div>
+          <div class="wtab" onclick="setWalkMode('km')" data-i="km">کلومیٹر</div>
+          <div class="wtab" onclick="setWalkMode('min')" data-i="minutes">منٹ</div>
+        </div>
+        <div id="walk-input"></div>
+        <button class="btn btn-ghost mt8" style="margin-top:8px" onclick="logWalk()" data-i="log_walk">✅ واک لاگ کریں</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🏋️ <span data-i="other_exercise">دوسری ورزش</span></div>
+        <div class="ex-grid" id="ex-grid"></div>
+        <div class="g2 mt8">
+          <div class="fg"><label data-i="duration_min">وقت (منٹ)</label>
+            <input type="number" id="ex-mins" placeholder="30" dir="ltr" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);outline:none;font-family:inherit">
+          </div>
+          <div style="display:flex;align-items:flex-end">
+            <button class="btn" style="margin-top:0" onclick="logExercise()" data-i="log_btn">لاگ</button>
+          </div>
+        </div>
+        <div id="ex-log" style="margin-top:10px"></div>
+      </div>
+    </div>
+
+    <!-- WATER TAB -->
+    <div class="tab-pane" id="pane-water">
+      <div class="card">
+        <div class="card-title">💧 <span data-i="water_tracker">پانی ٹریکر</span></div>
+        <div class="water-label" id="water-label-text">ہر گلاس = 250ml</div>
+        <div class="water-container">
+          <div class="water-grid" id="water-grid"></div>
+          <div class="water-stats">
+            <div class="water-count" id="water-count">0</div>
+            <div>
+              <div class="water-ml" id="water-ml">0 ml</div>
+              <div class="water-goal" id="water-goal-text"></div>
+            </div>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="card-title">🥤 <span data-i="beverages">مشروبات</span></div>
+        <div class="bev-grid" id="bev-grid"></div>
+        <div id="bev-log" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <!-- GOALS TAB -->
+    <div class="tab-pane" id="pane-goals">
+      <div class="card">
+        <div class="card-title">🎯 <span data-i="calorie_goal">کیلوری ہدف</span></div>
+        <div class="g2">
+          <div class="fg"><label data-i="daily_target">روزانہ ہدف (kcal)</label>
+            <input type="number" id="g-cal" placeholder="1600" dir="ltr" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);outline:none;font-family:inherit">
+          </div>
+          <div class="fg"><label data-i="target_weight">ہدف وزن (kg)</label>
+            <input type="number" id="g-wt" placeholder="75" dir="ltr" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);outline:none;font-family:inherit">
+          </div>
+        </div>
+        <button class="btn" onclick="saveGoals()" data-i="save_goals">💾 ہدف محفوظ کریں</button>
+        <div class="deficit-card" id="deficit-card"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 <span data-i="nutrient_plan">نیوٹرنٹ پلان</span></div>
+        <div id="nut-plan"></div>
+      </div>
+    </div>
+
+    <!-- REPORT TAB -->
+    <div class="tab-pane" id="pane-report">
+      <div class="card">
+        <div class="rep-hdr">
+          <div>
+            <div style="font-size:15px;font-weight:700" data-i="today_report">آج کی رپورٹ</div>
+            <div style="font-size:11px;color:var(--text3)" id="rep-date"></div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:10px;color:var(--text3)" data-i="score">سکور</div>
+            <div class="rep-score" id="rep-score">--</div>
+          </div>
+        </div>
+        <div id="rep-content"></div>
+      </div>
+      <div class="analysis-box">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <span style="font-size:18px">📋</span>
+          <span style="font-size:13px;font-weight:700;color:var(--accent)" data-i="full_analysis">مکمل تجزیہ</span>
+        </div>
+        <button class="btn" onclick="generateReport()" data-i="gen_report">📊 تجزیہ تیار کریں</button>
+        <div class="analysis-text mt8" id="rep-analysis" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- PROFILE TAB -->
+    <div class="tab-pane" id="pane-profile">
+      <div class="card">
+        <div class="card-title">👤 <span data-i="my_profile">میرا پروفائل</span></div>
+        <div class="prof-grid" id="prof-grid"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🎯 <span data-i="daily_needs">روزانہ ضروریات</span></div>
+        <div id="req-display"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚕️ <span data-i="medical">طبی حالت</span></div>
+        <div id="med-display"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOD MODAL -->
+<div class="modal-overlay" id="food-modal">
+  <div class="modal">
+    <div class="modal-title" data-i="add_food">کھانا ایڈ کریں</div>
+    <div id="fm-name" style="font-size:14px;color:var(--accent);font-weight:700;margin-bottom:12px"></div>
+    <!-- Medical warning -->
+    <div id="fm-warning" style="display:none" class="alert a-warn">⚠️ <span id="fm-warning-text"></span></div>
+    <div class="fg"><label data-i="meal_time">وقت</label>
+      <select id="fm-meal">
+        <option value="breakfast" data-i="breakfast">ناشتہ 🌅</option>
+        <option value="lunch" data-i="lunch">دوپہر 🌞</option>
+        <option value="dinner" data-i="dinner">رات 🌙</option>
+        <option value="snack" data-i="snack">ہلکا 🍎</option>
+      </select>
+    </div>
+    <div class="g2">
+      <div class="fg"><label data-i="quantity">مقدار</label><input type="number" id="fm-qty" value="100" dir="ltr" oninput="updatePreview()" onchange="updatePreview()"></div>
+      <div class="fg"><label data-i="unit">اکائی</label>
+        <select id="fm-unit" onchange="updatePreview()">
+          <option value="g" data-i="grams">گرام</option>
+          <option value="piece" data-i="piece">عدد</option>
+          <option value="tbsp" data-i="tbsp">چمچ</option>
+          <option value="cup" data-i="cup">کپ</option>
+          <option value="ml">ml</option>
+        </select>
+      </div>
+    </div>
+    <div class="food-preview" id="fm-preview"></div>
+    <div style="display:flex;gap:10px">
+      <button class="btn" onclick="confirmFood()" style="flex:1" data-i="add_btn">✅ ایڈ کریں</button>
+      <button class="btn btn-ghost" onclick="closeModal('food-modal')" data-i="cancel">منسوخ</button>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOM FOOD MODAL -->
+<div class="modal-overlay" id="custom-modal">
+  <div class="modal">
+    <div class="modal-title" data-i="add_custom_food">نئی چیز ایڈ کریں</div>
+    <div class="fg"><label data-i="name">نام</label><input type="text" id="cf-name" placeholder="مثلاً: گھر کا بسکٹ"></div>
+    <div class="g2">
+      <div class="fg"><label>Calories/100g</label><input type="number" id="cf-cal" dir="ltr"></div>
+      <div class="fg"><label>Protein (g)</label><input type="number" id="cf-pro" dir="ltr"></div>
+    </div>
+    <div class="g2">
+      <div class="fg"><label>Carbs (g)</label><input type="number" id="cf-carb" dir="ltr"></div>
+      <div class="fg"><label>Fat (g)</label><input type="number" id="cf-fat" dir="ltr"></div>
+    </div>
+    <div class="g2">
+      <div class="fg"><label>Fiber (g)</label><input type="number" id="cf-fib" dir="ltr"></div>
+      <div class="fg"><label>Sodium (mg)</label><input type="number" id="cf-sod" dir="ltr"></div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn" onclick="saveCustomFood()" style="flex:1" data-i="save">💾 محفوظ</button>
+      <button class="btn btn-ghost" onclick="closeModal('custom-modal')" data-i="cancel">منسوخ</button>
+    </div>
+  </div>
+</div>
+
+<!-- AI SEARCH MODAL -->
+<div class="modal-overlay" id="ai-modal">
+  <div class="modal">
+    <div class="modal-title">🔍 <span data-i="find_nutrition">غذائی معلومات تلاش کریں</span></div>
+    <div class="fg"><label data-i="food_name">کھانے کا نام</label>
+      <input type="text" id="ai-query" data-ph-ur="بھنے چنے، مکئی کی روٹی..." data-ph-en="e.g. bhuna chana, makki roti...">
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:10px">
+      <button class="btn" onclick="doAISearch()" style="flex:1" data-i="search">🔍 تلاش</button>
+      <button class="btn btn-ghost" onclick="closeModal('ai-modal')" data-i="cancel">منسوخ</button>
+    </div>
+    <div id="ai-result" style="display:none"></div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// TRANSLATIONS
+// ============================================================
+const I18N = {
+  ur: {
+    dashboard:'ڈیش بورڈ', food:'کھانا', exercise:'ورزش', water:'پانی',
+    goals:'اہداف', report:'رپورٹ', profile:'پروفائل',
+    name:'نام', password:'پاسورڈ', age:'عمر (سال)', weight:'وزن (kg)',
+    height:'قد (cm)', goal_wt:'ہدف (kg)', gender:'جنس', activity:'سرگرمی',
+    conditions:'بیماریاں', male:'مرد', female:'عورت',
+    sedentary:'کم (بیٹھنا)', light:'تھوڑا', moderate:'درمیانہ', active:'زیادہ',
+    prediabetic:'پری ڈائبٹک', diabetes:'ذیابیطس', fatty_liver:'فیٹی لیور',
+    hypertension:'بلڈ پریشر', high_tg:'TG زیادہ', heart:'دل',
+    login_btn:'🔐 لاگ ان', demo_btn:'👤 Demo آزمائیں', register_btn:'✅ رجسٹر کریں',
+    calories:'کیلوریز', deficit:'کمی', weekly:'فی ہفتہ',
+    advice_title:'آج کا مشورہ', loading:'لوڈ ہو رہا ہے...',
+    nutrients_today:'نیوٹرنٹس آج', trend_7days:'7 دن کا ٹرینڈ',
+    summary:'خلاصہ', full_report:'مکمل رپورٹ', quick_add:'فوری ایڈ',
+    search_food:'کھانا تلاش کریں', oil_toggle:'🫙 کڑھائی میں تیل/گھی بھی ایڈ کریں؟',
+    desi_ghee:'دیسی گھی', dalda:'ڈالڈا', cooking_oil:'کھانا پکانے کا تیل', butter:'مکھن',
+    fat_type:'تیل کی قسم', oil_tbsp:'چمچ', add_custom:'➕ نئی چیز', not_in_list:'🔍 لسٹ میں نہیں؟',
+    walk_tracker:'واک ٹریکر', steps:'قدم', km:'کلومیٹر', minutes:'منٹ',
+    log_walk:'✅ واک لاگ کریں', other_exercise:'دوسری ورزش', duration_min:'وقت (منٹ)', log_btn:'لاگ',
+    water_tracker:'پانی ٹریکر', beverages:'مشروبات',
+    calorie_goal:'کیلوری ہدف', daily_target:'روزانہ ہدف (kcal)', target_weight:'ہدف وزن (kg)',
+    save_goals:'💾 ہدف محفوظ کریں', nutrient_plan:'نیوٹرنٹ پلان',
+    today_report:'آج کی رپورٹ', score:'سکور', full_analysis:'مکمل تجزیہ', gen_report:'📊 تجزیہ تیار کریں',
+    my_profile:'میرا پروفائل', daily_needs:'روزانہ ضروریات', medical:'طبی حالت',
+    add_food:'کھانا ایڈ کریں', meal_time:'وقت', breakfast:'ناشتہ 🌅', lunch:'دوپہر 🌞',
+    dinner:'رات 🌙', snack:'ہلکا 🍎', quantity:'مقدار', unit:'اکائی',
+    grams:'گرام', piece:'عدد', tbsp:'چمچ', cup:'کپ', add_btn:'✅ ایڈ کریں', cancel:'منسوخ',
+    add_custom_food:'نئی چیز ایڈ کریں', save:'💾 محفوظ',
+    find_nutrition:'غذائی معلومات تلاش کریں', food_name:'کھانے کا نام', search:'🔍 تلاش',
+    nutrients:{calories:'کیلوریز',protein:'پروٹین',carbs:'کاربز',fat:'فیٹ',fiber:'فائبر',sodium:'سوڈیم'},
+    meals:{breakfast:'ناشتہ 🌅',lunch:'دوپہر 🌞',dinner:'رات 🌙',snack:'ہلکا 🍎'},
+    bmi:{underweight:'کم وزن',normal:'نارمل',overweight:'زیادہ وزن',obese:'موٹاپا'},
+    alerts:{low_protein:'⚠️ پروٹین بہت کم ہے',high_carbs:'⚠️ کاربز زیادہ — شوگر کا خطرہ',
+      low_fiber:'⚠️ فائبر کم — سبزیاں کھائیں',low_water:'💧 پانی کم',
+      over_cal:'🔥 کیلوریز حد سے زیادہ!',good:'✅ آج کا کھانا عمدہ!'},
+    conds:{prediabetic:'پری ڈائبٹک',diabetes:'ذیابیطس',fatty_liver:'فیٹی لیور',
+      hypertension:'بلڈ پریشر',high_triglycerides:'TG زیادہ',heart:'دل'},
+    no_food:'کچھ نہیں کھایا', no_exercise:'کوئی ورزش نہیں',
+    sugar_warning:'یہ کھانا شوگر میں زیادہ ہے — احتیاط کریں',
+    install_text:'📱 ہوم اسکرین پر انسٹال کریں',
+    add_to_log:'✅ لاگ میں ایڈ', save_db:'💾 محفوظ',
+    weight_analysis:'وزن کمی کا تجزیہ', current_weight:'موجودہ وزن', target_weight2:'ہدف وزن',
+    to_lose:'کم کرنا ہے', daily_need:'روزانہ ضرورت (TDEE)', your_goal:'آپ کا ہدف',
+    daily_deficit:'روزانہ کمی', goal_time:'میں ہدف پورا ہوگا',
+    weeks:'ہفتے', days:'دن',
+  },
+  en: {
+    dashboard:'Dashboard', food:'Food', exercise:'Exercise', water:'Water',
+    goals:'Goals', report:'Report', profile:'Profile',
+    name:'Name', password:'Password', age:'Age (years)', weight:'Weight (kg)',
+    height:'Height (cm)', goal_wt:'Goal (kg)', gender:'Gender', activity:'Activity',
+    conditions:'Medical Conditions', male:'Male', female:'Female',
+    sedentary:'Sedentary', light:'Light', moderate:'Moderate', active:'Active',
+    prediabetic:'Pre-diabetic', diabetes:'Diabetes', fatty_liver:'Fatty Liver',
+    hypertension:'Hypertension', high_tg:'High TG', heart:'Heart Disease',
+    login_btn:'🔐 Login', demo_btn:'👤 Try Demo', register_btn:'✅ Register',
+    calories:'Calories', deficit:'Deficit', weekly:'Per Week',
+    advice_title:"Today's Advice", loading:'Loading...',
+    nutrients_today:'Nutrients Today', trend_7days:'7-Day Trend',
+    summary:'Summary', full_report:'Full Report', quick_add:'Quick Add',
+    search_food:'Search Food', oil_toggle:'🫙 Add cooking oil/ghee?',
+    desi_ghee:'Desi Ghee', dalda:'Dalda (Vanaspati)', cooking_oil:'Cooking Oil', butter:'Butter',
+    fat_type:'Fat Type', oil_tbsp:'Tablespoons', add_custom:'➕ Add Custom', not_in_list:'🔍 Not in list?',
+    walk_tracker:'Walk Tracker', steps:'Steps', km:'Kilometers', minutes:'Minutes',
+    log_walk:'✅ Log Walk', other_exercise:'Other Exercise', duration_min:'Duration (min)', log_btn:'Log',
+    water_tracker:'Water Tracker', beverages:'Beverages',
+    calorie_goal:'Calorie Goal', daily_target:'Daily Target (kcal)', target_weight:'Target Weight (kg)',
+    save_goals:'💾 Save Goals', nutrient_plan:'Nutrient Plan',
+    today_report:"Today's Report", score:'Score', full_analysis:'Full Analysis', gen_report:'📊 Generate Analysis',
+    my_profile:'My Profile', daily_needs:'Daily Requirements', medical:'Medical Conditions',
+    add_food:'Add Food', meal_time:'Meal Time', breakfast:'Breakfast 🌅', lunch:'Lunch 🌞',
+    dinner:'Dinner 🌙', snack:'Snack 🍎', quantity:'Quantity', unit:'Unit',
+    grams:'Grams', piece:'Piece', tbsp:'Tablespoon', cup:'Cup', add_btn:'✅ Add', cancel:'Cancel',
+    add_custom_food:'Add Custom Food', save:'💾 Save',
+    find_nutrition:'Find Food Nutrition', food_name:'Food Name', search:'🔍 Search',
+    nutrients:{calories:'Calories',protein:'Protein',carbs:'Carbs',fat:'Fat',fiber:'Fiber',sodium:'Sodium'},
+    meals:{breakfast:'Breakfast 🌅',lunch:'Lunch 🌞',dinner:'Dinner 🌙',snack:'Snack 🍎'},
+    bmi:{underweight:'Underweight',normal:'Normal',overweight:'Overweight',obese:'Obese'},
+    alerts:{low_protein:'⚠️ Protein too low',high_carbs:'⚠️ Carbs high — sugar risk',
+      low_fiber:'⚠️ Low fiber — eat more veggies',low_water:'💧 Not enough water',
+      over_cal:'🔥 Exceeded calorie goal!',good:'✅ Great eating today!'},
+    conds:{prediabetic:'Pre-diabetic',diabetes:'Diabetes',fatty_liver:'Fatty Liver',
+      hypertension:'Hypertension',high_triglycerides:'High TG',heart:'Heart'},
+    no_food:'Nothing logged', no_exercise:'No exercise logged',
+    sugar_warning:'This food is high in sugar — be careful',
+    install_text:'📱 Install on home screen',
+    add_to_log:'✅ Add to Log', save_db:'💾 Save',
+    weight_analysis:'Weight Loss Analysis', current_weight:'Current Weight', target_weight2:'Target Weight',
+    to_lose:'To Lose', daily_need:'Daily Need (TDEE)', your_goal:'Your Goal',
+    daily_deficit:'Daily Deficit', goal_time:'to reach goal',
+    weeks:'weeks', days:'days',
+  }
+};
+
+let L = localStorage.getItem('np_lang')||'ur';
+let TH = localStorage.getItem('np_theme')||'dark';
+const t = (k,sub) => { const d=I18N[L]; return sub?(d[k]?.[sub]||k):(d[k]||k); };
+
+function toggleLang(){ L=L==='ur'?'en':'ur'; localStorage.setItem('np_lang',L); applyLang(); if(currentUser)refreshAll(); }
+function toggleTheme(){ TH=TH==='dark'?'light':'dark'; localStorage.setItem('np_theme',TH); applyTheme(); }
+
+function applyLang(){
+  document.documentElement.setAttribute('data-lang',L);
+  document.getElementById('lang-pill').textContent = L==='ur'?'EN':'اردو';
+  // Update all [data-i] elements
+  document.querySelectorAll('[data-i]').forEach(el=>{ const v=t(el.dataset.i); if(v&&v!==el.dataset.i)el.textContent=v; });
+  // Placeholders
+  document.querySelectorAll('[data-ph-ur]').forEach(el=>{ el.placeholder=L==='ur'?el.dataset.phUr:el.dataset.phEn; });
+  document.getElementById('install-text').textContent=t('install_text');
+}
+
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme',TH);
+  document.getElementById('theme-btn').textContent=TH==='dark'?'☀️':'🌙';
+}
+
+applyLang(); applyTheme();
+
+// ============================================================
+// FOOD DATABASE — 120+ items
+// ============================================================
+const HIGH_SUGAR_IDS = new Set(['jalebi','gulab_jamun','lassi_sweet','sharbat','juice_packed','barfi','kheer','seviyan','ice_cream','mango','dates','banana_ripe']);
+
+const FDB = [
+  // BREAD
+  {id:'roti_wheat',n:'گندم روٹی',e:'Wheat Roti',c:71,p:2.7,cb:14,f:.5,fi:1.8,s:3,per:'pc',g:50},
+  {id:'roti_maida',n:'میدہ روٹی',e:'Maida Roti',c:80,p:2.3,cb:16.2,f:.7,fi:.6,s:4,per:'pc',g:55},
+  {id:'paratha_plain',n:'سادہ پراٹھا',e:'Plain Paratha',c:185,p:4.5,cb:28,f:6.5,fi:2.2,s:15,per:'pc',g:90},
+  {id:'paratha_aloo',n:'آلو پراٹھا',e:'Aloo Paratha',c:220,p:5,cb:35,f:7.5,fi:2.8,s:220,per:'pc',g:120},
+  {id:'paratha_large',n:'بڑا پراٹھا',e:'Large Paratha',c:280,p:6.5,cb:40,f:10,fi:3,s:20,per:'pc',g:130},
+  {id:'naan',n:'نان',e:'Naan',c:262,p:8.7,cb:50,f:3.5,fi:1.8,s:530,per:'pc',g:90},
+  {id:'puri',n:'پوری',e:'Puri',c:150,p:2.8,cb:18,f:8,fi:.8,s:5,per:'pc',g:45},
+  {id:'roti_makki',n:'مکئی روٹی',e:'Makki Roti',c:80,p:2.5,cb:16,f:1,fi:2.5,s:5,per:'pc',g:55},
+  {id:'kulcha',n:'کلچہ',e:'Kulcha',c:250,p:7.5,cb:48,f:3,fi:1.5,s:480,per:'pc',g:85},
+  {id:'sheermal',n:'شیرمال',e:'Sheermal',c:310,p:7,cb:55,f:7.5,fi:1,s:400,per:'pc',g:100},
+  // RICE
+  {id:'rice_white',n:'سفید چاول',e:'White Rice',c:130,p:2.7,cb:28,f:.3,fi:.4,s:1,per:'g'},
+  {id:'rice_brown',n:'بھورے چاول',e:'Brown Rice',c:112,p:2.6,cb:23.5,f:.9,fi:1.8,s:5,per:'g'},
+  {id:'biryani_chicken',n:'چکن بریانی',e:'Chicken Biryani',c:190,p:11,cb:22,f:6,fi:1,s:650,per:'g'},
+  {id:'biryani_mutton',n:'مٹن بریانی',e:'Mutton Biryani',c:210,p:12,cb:22,f:8,fi:.8,s:700,per:'g'},
+  {id:'pulao_chicken',n:'چکن پلاؤ',e:'Chicken Pulao',c:165,p:9,cb:24,f:4.5,fi:.5,s:550,per:'g'},
+  {id:'khichdi',n:'کھچڑی',e:'Khichdi',c:120,p:4.5,cb:21,f:2.5,fi:2,s:300,per:'g'},
+  // DALS
+  {id:'dal_masoor',n:'مسور دال',e:'Masoor Dal',c:116,p:7.6,cb:18,f:3,fi:3.5,s:350,per:'g'},
+  {id:'dal_chana',n:'چنے کی دال',e:'Chana Dal',c:130,p:7.5,cb:19,f:3.5,fi:4,s:300,per:'g'},
+  {id:'dal_mash',n:'ماش دال',e:'Mash Dal',c:115,p:8,cb:16.5,f:2.8,fi:3.8,s:280,per:'g'},
+  {id:'dal_moong',n:'مونگ دال',e:'Moong Dal',c:105,p:7,cb:15,f:2.5,fi:4,s:300,per:'g'},
+  // CURRIES
+  {id:'chicken_curry',n:'چکن سالن',e:'Chicken Curry',c:165,p:16,cb:5,f:9.5,fi:1,s:580,per:'g'},
+  {id:'mutton_curry',n:'مٹن سالن',e:'Mutton Curry',c:180,p:15,cb:4,f:12,fi:.8,s:600,per:'g'},
+  {id:'beef_curry',n:'بیف سالن',e:'Beef Curry',c:175,p:16,cb:3.5,f:11,fi:.7,s:580,per:'g'},
+  {id:'aloo_gosht',n:'آلو گوشت',e:'Aloo Gosht',c:145,p:10,cb:10,f:8,fi:1.5,s:500,per:'g'},
+  {id:'aloo_gobi',n:'آلو گوبھی',e:'Aloo Gobi',c:85,p:2.5,cb:12,f:3.5,fi:2.5,s:380,per:'g'},
+  {id:'aloo_palak',n:'آلو پالک',e:'Aloo Palak',c:75,p:3,cb:10,f:3,fi:3,s:350,per:'g'},
+  {id:'sarson_saag',n:'سرسوں کا ساگ',e:'Sarson Saag',c:70,p:3.5,cb:8,f:3.5,fi:4,s:400,per:'g'},
+  {id:'keema',n:'قیمہ',e:'Keema',c:200,p:20,cb:3,f:13,fi:.5,s:580,per:'g'},
+  {id:'chicken_karahi',n:'چکن کڑاہی',e:'Chicken Karahi',c:175,p:17,cb:4,f:11,fi:.8,s:620,per:'g'},
+  {id:'nihari',n:'نہاری',e:'Nihari',c:190,p:17,cb:5,f:12,fi:.5,s:720,per:'g'},
+  {id:'haleem',n:'حلیم',e:'Haleem',c:150,p:12,cb:14,f:5.5,fi:2.5,s:600,per:'g'},
+  {id:'paye',n:'پائے',e:'Paye',c:180,p:18,cb:2,f:12,fi:0,s:700,per:'g'},
+  {id:'fish_curry',n:'مچھلی سالن',e:'Fish Curry',c:140,p:15,cb:5,f:7,fi:.8,s:580,per:'g'},
+  {id:'bhindi',n:'بھنڈی',e:'Bhindi',c:65,p:2,cb:9,f:2.5,fi:3,s:300,per:'g'},
+  {id:'karela',n:'کریلا',e:'Karela',c:50,p:2,cb:7,f:1.5,fi:2.8,s:200,per:'g'},
+  {id:'lauki',n:'لوکی',e:'Lauki',c:45,p:1.5,cb:7,f:1,fi:2.5,s:250,per:'g'},
+  {id:'tinda',n:'ٹنڈہ',e:'Tinda',c:40,p:1.2,cb:7,f:.8,fi:2,s:180,per:'g'},
+  {id:'shahi_paneer',n:'شاہی پنیر',e:'Shahi Paneer',c:250,p:11,cb:12,f:18,fi:1,s:650,per:'g'},
+  {id:'palak_paneer',n:'پالک پنیر',e:'Palak Paneer',c:200,p:10,cb:9,f:15,fi:2.5,s:600,per:'g'},
+  // EGGS
+  {id:'egg_whole',n:'انڈہ',e:'Whole Egg',c:72,p:6.3,cb:.4,f:4.8,fi:0,s:71,per:'pc',g:50},
+  {id:'egg_boiled',n:'ابلا انڈہ',e:'Boiled Egg',c:68,p:6.3,cb:.5,f:4.4,fi:0,s:62,per:'pc',g:50},
+  {id:'omelette_2egg',n:'آملیٹ (2 انڈے)',e:'Omelette (2 eggs)',c:200,p:13,cb:1.5,f:16,fi:0,s:280,per:'pc',g:110},
+  {id:'egg_fried',n:'تلا انڈہ',e:'Fried Egg',c:90,p:6.3,cb:.4,f:7,fi:0,s:100,per:'pc',g:50},
+  // MEATS
+  {id:'chicken_breast',n:'چکن بریسٹ',e:'Chicken Breast',c:165,p:31,cb:0,f:3.6,fi:0,s:74,per:'g'},
+  {id:'chicken_leg',n:'چکن ٹانگ',e:'Chicken Leg',c:195,p:27,cb:0,f:9,fi:0,s:90,per:'g'},
+  {id:'mutton',n:'مٹن',e:'Mutton',c:235,p:25,cb:0,f:15,fi:0,s:80,per:'g'},
+  {id:'beef',n:'بیف',e:'Beef',c:215,p:26,cb:0,f:12,fi:0,s:75,per:'g'},
+  {id:'liver',n:'کلیجی',e:'Liver',c:175,p:26,cb:4,f:5,fi:0,s:75,per:'g'},
+  {id:'fish',n:'مچھلی',e:'Fish',c:128,p:26,cb:0,f:2.7,fi:0,s:52,per:'g'},
+  {id:'shrimp',n:'جھینگا',e:'Shrimp',c:99,p:24,cb:.2,f:.3,fi:0,s:111,per:'g'},
+  {id:'tikka_chicken',n:'چکن ٹکہ',e:'Chicken Tikka',c:165,p:28,cb:3,f:5,fi:.3,s:700,per:'g'},
+  {id:'seekh_kebab',n:'سیخ کباب',e:'Seekh Kebab',c:200,p:22,cb:4,f:11,fi:.3,s:600,per:'pc',g:60},
+  {id:'shami_kebab',n:'شامی کباب',e:'Shami Kebab',c:175,p:14,cb:12,f:9,fi:1.5,s:450,per:'pc',g:60},
+  // DAIRY
+  {id:'milk_full',n:'دودھ (فل فیٹ)',e:'Full Fat Milk',c:61,p:3.2,cb:4.7,f:3.3,fi:0,s:43,per:'g'},
+  {id:'dahi',n:'دہی',e:'Dahi (Yogurt)',c:61,p:3.5,cb:4.7,f:3.3,fi:0,s:46,per:'g'},
+  {id:'lassi_sweet',n:'لسی میٹھی',e:'Sweet Lassi',c:150,p:4.5,cb:28,f:2.5,fi:0,s:80,per:'pc',g:250},
+  {id:'lassi_salty',n:'لسی نمکین',e:'Salty Lassi',c:80,p:4.5,cb:8,f:2.5,fi:0,s:300,per:'pc',g:250},
+  {id:'lassi_plain',n:'لسی سادہ',e:'Plain Lassi',c:100,p:4,cb:12,f:2.5,fi:0,s:120,per:'pc',g:250},
+  {id:'paneer',n:'پنیر',e:'Paneer',c:265,p:18,cb:3,f:20,fi:0,s:40,per:'g'},
+  {id:'ghee_desi',n:'دیسی گھی',e:'Desi Ghee',c:900,p:0,cb:0,f:100,fi:0,s:0,per:'g'},
+  {id:'ghee_dalda',n:'ڈالڈا',e:'Dalda',c:900,p:0,cb:0,f:100,fi:0,s:0,per:'g'},
+  {id:'butter',n:'مکھن',e:'Butter',c:717,p:.9,cb:.1,f:81,fi:0,s:11,per:'g'},
+  {id:'oil_cooking',n:'کھانا پکانے کا تیل',e:'Cooking Oil',c:884,p:0,cb:0,f:100,fi:0,s:0,per:'g'},
+  // VEGETABLES
+  {id:'potato',n:'آلو',e:'Potato',c:77,p:2,cb:17,f:.1,fi:2.2,s:6,per:'g'},
+  {id:'tomato',n:'ٹماٹر',e:'Tomato',c:18,p:.9,cb:3.9,f:.2,fi:1.2,s:5,per:'g'},
+  {id:'onion',n:'پیاز',e:'Onion',c:40,p:1.1,cb:9.3,f:.1,fi:1.7,s:4,per:'g'},
+  {id:'spinach',n:'پالک',e:'Spinach',c:23,p:2.9,cb:3.6,f:.4,fi:2.2,s:79,per:'g'},
+  {id:'cauliflower',n:'پھول گوبھی',e:'Cauliflower',c:25,p:1.9,cb:5,f:.3,fi:2,s:30,per:'g'},
+  {id:'carrot',n:'گاجر',e:'Carrot',c:41,p:.9,cb:9.6,f:.2,fi:2.8,s:69,per:'g'},
+  {id:'peas',n:'مٹر',e:'Green Peas',c:81,p:5.4,cb:14.5,f:.4,fi:5.1,s:5,per:'g'},
+  {id:'cucumber',n:'کھیرا',e:'Cucumber',c:15,p:.7,cb:3.6,f:.1,fi:.5,s:2,per:'g'},
+  {id:'eggplant',n:'بینگن',e:'Eggplant',c:25,p:1,cb:6,f:.2,fi:3,s:2,per:'g'},
+  {id:'methi',n:'میتھی',e:'Fenugreek',c:49,p:4.4,cb:6,f:.9,fi:2.7,s:67,per:'g'},
+  {id:'corn',n:'مکئی',e:'Corn',c:86,p:3.3,cb:19,f:1.4,fi:2.4,s:15,per:'g'},
+  // FRUITS
+  {id:'banana',n:'کیلا',e:'Banana',c:89,p:1.1,cb:23,f:.3,fi:2.6,s:1,per:'pc',g:100},
+  {id:'banana_ripe',n:'پکا کیلا',e:'Ripe Banana',c:105,p:1.3,cb:27,f:.4,fi:3,s:1,per:'pc',g:120},
+  {id:'apple',n:'سیب',e:'Apple',c:52,p:.3,cb:14,f:.2,fi:2.4,s:1,per:'pc',g:150},
+  {id:'mango',n:'آم',e:'Mango',c:60,p:.8,cb:15,f:.4,fi:1.6,s:1,per:'pc',g:200},
+  {id:'orange',n:'مالٹا',e:'Orange',c:47,p:.9,cb:12,f:.1,fi:2.4,s:0,per:'pc',g:130},
+  {id:'guava',n:'امرود',e:'Guava',c:68,p:2.6,cb:14,f:1,fi:5.4,s:2,per:'pc',g:100},
+  {id:'watermelon',n:'تربوز',e:'Watermelon',c:30,p:.6,cb:7.6,f:.2,fi:.4,s:1,per:'g'},
+  {id:'dates',n:'کھجور',e:'Dates',c:282,p:2.5,cb:75,f:.4,fi:8,s:2,per:'pc',g:24},
+  {id:'pomegranate',n:'انار',e:'Pomegranate',c:83,p:1.7,cb:19,f:1.2,fi:4,s:3,per:'pc',g:200},
+  // PULSES
+  {id:'chana_boiled',n:'ابلے چنے',e:'Boiled Chickpeas',c:164,p:8.9,cb:27.4,f:2.6,fi:7.6,s:7,per:'g'},
+  {id:'chana_roasted',n:'بھنے چنے',e:'Roasted Chickpeas',c:364,p:19,cb:55,f:6,fi:17.4,s:24,per:'g'},
+  {id:'rajma',n:'لوبیا',e:'Red Kidney Beans',c:127,p:8.7,cb:22.8,f:.5,fi:6.4,s:2,per:'g'},
+  {id:'mungfali',n:'مونگ پھلی',e:'Peanuts',c:567,p:25.8,cb:16.1,f:49.2,fi:8.5,s:18,per:'g'},
+  // SEEDS & NUTS
+  {id:'chia_seeds',n:'چیا سیڈ',e:'Chia Seeds',c:486,p:16.5,cb:42,f:30.7,fi:34.4,s:16,per:'g'},
+  {id:'gaund_katira',n:'گوند کتیرا',e:'Tragacanth Gum',c:330,p:2,cb:85,f:0,fi:70,s:10,per:'g'},
+  {id:'almonds',n:'بادام',e:'Almonds',c:579,p:21.2,cb:21.6,f:49.9,fi:12.5,s:1,per:'g'},
+  {id:'walnuts',n:'اخروٹ',e:'Walnuts',c:654,p:15.2,cb:13.7,f:65.2,fi:6.7,s:2,per:'g'},
+  {id:'flaxseeds',n:'السی',e:'Flaxseeds',c:534,p:18.3,cb:28.9,f:42.2,fi:27.3,s:30,per:'g'},
+  {id:'pumpkin_seeds',n:'کدو کے بیج',e:'Pumpkin Seeds',c:559,p:30.2,cb:10.7,f:49.1,fi:6,s:7,per:'g'},
+  // SNACKS
+  {id:'samosa',n:'سموسہ',e:'Samosa',c:262,p:5.5,cb:28,f:14,fi:2,s:420,per:'pc',g:70},
+  {id:'pakora',n:'پکوڑا',e:'Pakora',c:235,p:4,cb:28,f:12.5,fi:1.5,s:320,per:'pc',g:55},
+  {id:'bread_white',n:'بریڈ (سفید)',e:'White Bread',c:79,p:2.7,cb:15.1,f:1,fi:.6,s:147,per:'pc',g:30},
+  {id:'bread_brown',n:'بریڈ (براؤن)',e:'Brown Bread',c:69,p:3.5,cb:12,f:1,fi:1.9,s:130,per:'pc',g:30},
+  {id:'oats',n:'اوٹس',e:'Oats',c:389,p:16.9,cb:66,f:6.9,fi:10.6,s:2,per:'g'},
+  // SWEETS
+  {id:'jalebi',n:'جلیبی',e:'Jalebi',c:350,p:2,cb:65,f:10,fi:.5,s:15,per:'g'},
+  {id:'gulab_jamun',n:'گلاب جامن',e:'Gulab Jamun',c:175,p:3,cb:30,f:5.5,fi:.5,s:90,per:'pc',g:50},
+  {id:'barfi',n:'برفی',e:'Barfi',c:380,p:8,cb:60,f:13,fi:.5,s:50,per:'g'},
+  {id:'kheer',n:'کھیر',e:'Kheer',c:155,p:4.5,cb:28,f:4,fi:.2,s:70,per:'g'},
+  {id:'gajar_halwa',n:'گاجر کا حلوہ',e:'Gajar Halwa',c:250,p:4,cb:35,f:11,fi:2,s:60,per:'g'},
+  {id:'seviyan',n:'سویاں',e:'Seviyan',c:200,p:4,cb:35,f:5.5,fi:.5,s:80,per:'g'},
+  {id:'halwa_sooji',n:'سوجی حلوہ',e:'Sooji Halwa',c:300,p:4,cb:45,f:12,fi:1,s:100,per:'g'},
+  {id:'ice_cream',n:'آئس کریم',e:'Ice Cream',c:207,p:3.5,cb:24,f:11,fi:0,s:80,per:'g'},
+  // BEVERAGES
+  {id:'chai_milk',n:'چائے (دودھ)',e:'Milk Tea',c:60,p:2,cb:9,f:2,fi:0,s:30,per:'pc',g:200},
+  {id:'green_tea',n:'سبز چائے',e:'Green Tea',c:2,p:0,cb:0,f:0,fi:0,s:0,per:'pc',g:200},
+  {id:'juice_packed',n:'جوس (پیکٹ)',e:'Packed Juice',c:120,p:.5,cb:29,f:.2,fi:.5,s:30,per:'pc',g:250},
+  {id:'sharbat',n:'شربت',e:'Sharbat',c:80,p:0,cb:20,f:0,fi:0,s:5,per:'pc',g:200},
+];
+
+// QUICK ADD items
+const QUICK_ITEMS = [
+  {id:'roti_wheat',icon:'🫓',qty:1,unit:'pc'},
+  {id:'chai_milk',icon:'☕',qty:1,unit:'pc'},
+  {id:'egg_boiled',icon:'🥚',qty:1,unit:'pc'},
+  {id:'dahi',icon:'🍶',qty:100,unit:'g'},
+  {id:'banana',icon:'🍌',qty:1,unit:'pc'},
+  {id:'chana_boiled',icon:'🫘',qty:100,unit:'g'},
+  {id:'omelette_2egg',icon:'🍳',qty:1,unit:'pc'},
+  {id:'paratha_plain',icon:'🫓',qty:1,unit:'pc'},
+  {id:'rice_white',icon:'🍚',qty:150,unit:'g'},
+  {id:'apple',icon:'🍎',qty:1,unit:'pc'},
+];
+
+// EXERCISES — expanded
+const EX = [
+  {id:'run',n:'دوڑنا',e:'Running',i:'🏃',r:10},
+  {id:'cycle',n:'سائیکل',e:'Cycling',i:'🚴',r:8},
+  {id:'swim',n:'تیراکی',e:'Swimming',i:'🏊',r:9},
+  {id:'yoga',n:'یوگا',e:'Yoga',i:'🧘',r:3.5},
+  {id:'pushup',n:'پش اپ',e:'Push-ups',i:'💪',r:7},
+  {id:'squats',n:'اسکوٹس',e:'Squats',i:'🦵',r:6},
+  {id:'plank',n:'پلینک',e:'Plank',i:'🏋️',r:4},
+  {id:'burpees',n:'برپیز',e:'Burpees',i:'🔥',r:12},
+  {id:'situps',n:'سٹ اپس',e:'Sit-ups',i:'🤸',r:5.5},
+  {id:'jumpingjacks',n:'جمپنگ جیکس',e:'Jumping Jacks',i:'⭐',r:8},
+  {id:'skipping',n:'رسی کودنا',e:'Skipping Rope',i:'🪢',r:10},
+  {id:'cricket',n:'کرکٹ',e:'Cricket',i:'🏏',r:5},
+  {id:'football',n:'فٹبال',e:'Football',i:'⚽',r:8.5},
+  {id:'badminton',n:'بیڈمنٹن',e:'Badminton',i:'🏸',r:7},
+  {id:'volleyball',n:'والی بال',e:'Volleyball',i:'🏐',r:6},
+  {id:'gym',n:'جم',e:'Gym',i:'🏋️',r:7},
+  {id:'zumba',n:'زمبا',e:'Zumba',i:'💃',r:7.5},
+  {id:'pilates',n:'پیلاٹس',e:'Pilates',i:'🤸',r:4},
+  {id:'boxing',n:'باکسنگ',e:'Boxing',i:'🥊',r:11},
+  {id:'hiking',n:'پہاڑی سیر',e:'Hiking',i:'⛰️',r:7},
+  {id:'housework',n:'گھر کا کام',e:'Housework',i:'🏠',r:3},
+  {id:'farming',n:'کھیتی باڑی',e:'Farming',i:'👨‍🌾',r:5},
+  {id:'gardening',n:'باغبانی',e:'Gardening',i:'🌱',r:3.5},
+  {id:'stairclimb',n:'سیڑھیاں',e:'Stair Climbing',i:'🪜',r:9},
+  {id:'dance',n:'رقص',e:'Dancing',i:'💃',r:6},
+];
+
+const BEVERAGES = [
+  {id:'chai',n:'چائے',e:'Milk Tea',i:'☕',c:60},
+  {id:'lassi_s',n:'لسی میٹھی',e:'Sweet Lassi',i:'🥛',c:150,highSugar:true},
+  {id:'lassi_n',n:'لسی نمکین',e:'Salty Lassi',i:'🥛',c:80},
+  {id:'lassi_p',n:'لسی سادہ',e:'Plain Lassi',i:'🥛',c:100},
+  {id:'doodh',n:'دودھ',e:'Milk',i:'🍼',c:150},
+  {id:'gt',n:'سبز چائے',e:'Green Tea',i:'🍵',c:5},
+  {id:'juice',n:'جوس پیکٹ',e:'Packed Juice',i:'🧃',c:120,highSugar:true},
+  {id:'sharbat',n:'شربت',e:'Sharbat',i:'🍹',c:80,highSugar:true},
+  {id:'coffee',n:'کافی',e:'Coffee',i:'☕',c:60},
+  {id:'water_plain',n:'پانی',e:'Water',i:'💧',c:0},
+  {id:'coconut_water',n:'ناریل پانی',e:'Coconut Water',i:'🥥',c:46},
+  {id:'nimbu_pani',n:'نیمبو پانی',e:'Lemon Water',i:'🍋',c:25},
+];
+
+// ============================================================
+// STATE
+// ============================================================
+let currentUser = null;
+let todayLog = {meals:{breakfast:[],lunch:[],dinner:[],snack:[]},exercise:[],water:0,beverages:[]};
+let selFood = null, selEx = null, walkMode = 'steps';
+let customFoods = [], userReqs = null, userGoals = {};
+let trendChart = null;
+window._appReady = false;
+
+// ============================================================
+// AUTH — Firebase + localStorage fallback
+// ============================================================
+window.onFirebaseLogin = (fbUser) => {
+  if (!window._appReady) { loginUser(fbUser); }
+};
+
+function showAuthTab(tab){
+  document.getElementById('login-form').classList.toggle('hidden',tab!=='login');
+  document.getElementById('reg-form').classList.toggle('hidden',tab!=='register');
+  document.querySelectorAll('.atab').forEach((el,i)=>el.classList.toggle('active',(i===0&&tab==='login')||(i===1&&tab==='register')));
+}
+
+async function doLogin(){
+  const email=document.getElementById('l-email').value.trim();
+  const pass=document.getElementById('l-pass').value;
+  if(!email||!pass){return alert(L==='ur'?'تمام خانے پُر کریں':'Fill all fields');}
+  try {
+    if(window._fbAuth){
+      const {signInWithEmailAndPassword}=window._fbFns;
+      const uc=await signInWithEmailAndPassword(window._fbAuth,email,pass);
+      const {doc,getDoc}=window._fbFns;
+      const snap=await getDoc(doc(window._fbDb,'users',uc.user.uid));
+      if(snap.exists()){loginUser({uid:uc.user.uid,...snap.data()});}
+    }
+  } catch(e){
+    // Fallback to localStorage
+    const users=JSON.parse(localStorage.getItem('np_users')||'{}');
+    const u=users[email];
+    if(!u||u.password!==pass){return alert(L==='ur'?'ای میل یا پاسورڈ غلط ہے':'Wrong email or password');}
+    loginUser(u);
+  }
+}
+
+function doDemo(){
+  loginUser({name:'Demo User',email:'demo@nutripak',age:40,weight:90,height:173,gender:'male',activity:'sedentary',conditions:['prediabetic','fatty_liver','high_triglycerides'],goalWeight:80,isDemo:true});
+}
+
+async function doRegister(){
+  const name=document.getElementById('r-name').value;
+  const email=document.getElementById('r-email').value.trim();
+  const pass=document.getElementById('r-pass').value;
+  const age=parseInt(document.getElementById('r-age').value);
+  const weight=parseFloat(document.getElementById('r-wt').value);
+  const height=parseInt(document.getElementById('r-ht').value);
+  const gender=document.getElementById('r-gen').value;
+  const activity=document.getElementById('r-act').value;
+  const goalWeight=parseFloat(document.getElementById('r-gwt').value)||weight-10;
+  const conditions=[];
+  ['c-pd','c-dm','c-fl','c-bp','c-tg','c-ht'].forEach(id=>{const el=document.getElementById(id);if(el.checked)conditions.push(el.value);});
+  if(!name||!email||!pass||!age||!weight||!height){return alert(L==='ur'?'تمام خانے پُر کریں':'Fill all fields');}
+  const userData={name,email,age,weight,height,gender,activity,conditions,goalWeight};
+  try {
+    if(window._fbAuth){
+      const {createUserWithEmailAndPassword,doc,setDoc}=window._fbFns;
+      const uc=await createUserWithEmailAndPassword(window._fbAuth,email,pass);
+      await setDoc(doc(window._fbDb,'users',uc.user.uid),userData);
+      loginUser({uid:uc.user.uid,...userData});
+    }
+  } catch(e){
+    // Fallback localStorage
+    const users=JSON.parse(localStorage.getItem('np_users')||'{}');
+    users[email]={...userData,password:pass};
+    localStorage.setItem('np_users',JSON.stringify(users));
+    loginUser(userData);
+  }
+}
+
+async function handleLogout(){
+  try{if(window._fbAuth&&window._fbFns)await window._fbFns.signOut(window._fbAuth);}catch(e){}
+  window._appReady=false; currentUser=null;
+  todayLog={meals:{breakfast:[],lunch:[],dinner:[],snack:[]},exercise:[],water:0,beverages:[]};
+  document.getElementById('main-app').style.display='none';
+  document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('logout-btn').style.display='none';
+}
+
+function loginUser(user){
+  currentUser=user; window._appReady=true;
+  localStorage.setItem('np_current',JSON.stringify(user));
+  const dk=new Date().toISOString().split('T')[0];
+  const saved=localStorage.getItem(`np_log_${user.email}_${dk}`);
+  if(saved)todayLog=JSON.parse(saved);
+  const cf=localStorage.getItem(`np_cf_${user.email}`);
+  if(cf)customFoods=JSON.parse(cf);
+  const gl=localStorage.getItem(`np_goals_${user.email}`);
+  if(gl)userGoals=JSON.parse(gl);
+  userReqs=calcReqs(user);
+  if(!userGoals.calories)userGoals.calories=userReqs.calories;
+  if(!userGoals.targetWeight)userGoals.targetWeight=user.goalWeight||(user.weight-10);
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('main-app').style.display='block';
+  document.getElementById('logout-btn').style.display='flex';
+  document.getElementById('h-name').textContent=user.name;
+  document.getElementById('h-date').textContent=new Date().toLocaleDateString(L==='ur'?'ur-PK':'en-PK');
+  document.getElementById('rep-date').textContent=new Date().toLocaleDateString(L==='ur'?'ur-PK':'en-PK');
+  autoSelectMeal();
+  initUI();
+  loadAdvice();
+}
+
+// Auto-select meal based on time
+function autoSelectMeal(){
+  const h=new Date().getHours();
+  const meal=h<11?'breakfast':h<15?'lunch':h<19?'dinner':'snack';
+  const fm=document.getElementById('fm-meal');
+  if(fm)fm.value=meal;
+}
+
+// ============================================================
+// REQUIREMENTS CALCULATOR
+// ============================================================
+function calcReqs(u){
+  const {age,weight,height,gender,activity,conditions}=u;
+  const bmi=weight/((height/100)**2);
+  let bmr=gender==='male'?(10*weight)+(6.25*height)-(5*age)+5:(10*weight)+(6.25*height)-(5*age)-161;
+  const act={sedentary:1.2,light:1.375,moderate:1.55,active:1.725};
+  let tdee=bmr*(act[activity]||1.2);
+  let cal=bmi>27?tdee-400:tdee;
+  let carbPct=.5,protPct=.2,fatPct=.3;
+  if(conditions.includes('prediabetic')||conditions.includes('diabetes')){carbPct=.38;protPct=.28;fatPct=.34;}
+  if(conditions.includes('fatty_liver')){protPct=Math.max(protPct,.28);}
+  if(conditions.includes('high_triglycerides')){carbPct-=.05;}
+  const tot=carbPct+protPct+fatPct;
+  carbPct/=tot;protPct/=tot;fatPct/=tot;
+  // Dynamic water goal: weight × 35ml
+  const waterMl=Math.round(weight*35);
+  const waterGlasses=Math.round(waterMl/250);
+  return {
+    calories:Math.round(cal),carbs:Math.round(cal*carbPct/4),
+    protein:Math.round(cal*protPct/4),fat:Math.round(cal*fatPct/9),
+    fiber:conditions.includes('prediabetic')?38:28,
+    waterMl,waterGlasses,sodium:conditions.includes('hypertension')?1500:2300,
+    bmi:Math.round(bmi*10)/10,bmr:Math.round(bmr),tdee:Math.round(tdee)
+  };
+}
+
+function getTotals(){
+  let r={cal:0,protein:0,carbs:0,fat:0,fiber:0,sodium:0};
+  const all=[...FDB,...customFoods];
+  Object.values(todayLog.meals).forEach(items=>items.forEach(it=>{
+    const f=all.find(x=>x.id===it.foodId);if(!f)return;
+    const fc=it.grams/100;
+    r.cal+=f.c*fc;r.protein+=f.p*fc;r.carbs+=f.cb*fc;
+    r.fat+=f.f*fc;r.fiber+=(f.fi||0)*fc;r.sodium+=(f.s||0)*fc;
+  }));
+  todayLog.beverages.forEach(b=>{r.cal+=b.cal;});
+  Object.keys(r).forEach(k=>{r[k]=Math.round(r[k]*10)/10;});
+  let burned=0;todayLog.exercise.forEach(e=>burned+=e.burned||0);
+  r.exerciseBurn=burned;r.netCal=Math.round(r.cal-burned);
+  return r;
+}
+
+function calcScore(tot,r){
+  const gc=userGoals.calories||r.calories;
+  let s=100;
+  const cd=Math.abs(tot.cal-gc)/gc;s-=Math.min(20,cd*100);
+  if(tot.protein<r.protein*.8)s-=20;
+  if(tot.fiber<r.fiber*.7)s-=15;
+  if(tot.carbs>r.carbs*1.2)s-=15;
+  if(todayLog.water<r.waterGlasses*.6)s-=10;
+  if(todayLog.exercise.length===0)s-=10;
+  return Math.max(0,Math.round(s));
+}
+
+// ============================================================
+// FIREBASE SAVE
+// ============================================================
+async function saveLog(){
+  const dk=new Date().toISOString().split('T')[0];
+  const lk=`np_log_${currentUser.email}_${dk}`;
+  localStorage.setItem(lk,JSON.stringify(todayLog));
+  // Save to Firestore
+  try{
+    if(window._fbDb&&currentUser.uid){
+      const {doc,setDoc}=window._fbFns;
+      await setDoc(doc(window._fbDb,'logs',`${currentUser.uid}_${dk}`),{...todayLog,date:dk,uid:currentUser.uid},{merge:true});
+    }
+  }catch(e){}
+}
+
+// ============================================================
+// INIT UI
+// ============================================================
+function initUI(){
+  renderGoalBanner();renderStats();renderNutrients();renderMeals();
+  renderQuickAdd();renderExGrid();renderWalkInput();
+  renderWater();renderBeverages();renderProfile();renderGoalsTab();renderReport();renderDashSummary();
+  render7DayChart();
+}
+
+// ============================================================
+// GOAL BANNER
+// ============================================================
+function renderGoalBanner(){
+  const tot=getTotals(),gc=userGoals.calories||userReqs.calories;
+  const pct=Math.min(100,Math.round(tot.cal/gc*100));
+  document.getElementById('gb-fill').style.width=pct+'%';
+  document.getElementById('gb-nums').textContent=`${Math.round(tot.cal)}/${gc}`;
+  const def=gc-tot.netCal;
+  const chip=document.getElementById('def-chip');
+  chip.textContent=(def>0?'-':'+')+(Math.abs(def))+' kcal';
+  chip.className='deficit-chip'+(def<0?' over':'');
+  const wkl=(def*7/7700).toFixed(2);
+  document.getElementById('weekly-loss').textContent=def>0?`−${wkl} kg/wk`:`+0`;
+}
+
+// ============================================================
+// STATS
+// ============================================================
+function renderStats(){
+  const r=userReqs,tot=getTotals(),gc=userGoals.calories||r.calories;
+  const calPct=Math.min(100,Math.round(tot.cal/gc*100));
+  const bmiLbl=t('bmi',r.bmi<18.5?'underweight':r.bmi<25?'normal':r.bmi<30?'overweight':'obese');
+  document.getElementById('stats-grid').innerHTML=`
+    <div class="stat-card" style="--sc:var(--accent)">
+      <div class="st-lbl">${t('calories')}</div>
+      <div class="st-val">${Math.round(tot.cal)}</div>
+      <div class="st-unit">/ ${gc} kcal</div>
+      <div class="st-bar"><div class="st-bar-fill" style="width:${calPct}%"></div></div>
+    </div>
+    <div class="stat-card" style="--sc:var(--info)">
+      <div class="st-lbl">${L==='ur'?'ورزش سے جلی':'Exercise Burn'}</div>
+      <div class="st-val">${tot.exerciseBurn}</div>
+      <div class="st-unit">kcal</div>
+    </div>
+    <div class="stat-card" style="--sc:${tot.netCal<=gc?'var(--accent)':'var(--danger)'}">
+      <div class="st-lbl">${L==='ur'?'خالص کیلوریز':'Net Calories'}</div>
+      <div class="st-val">${tot.netCal}</div>
+      <div class="st-unit">/ ${gc} kcal</div>
+    </div>
+    <div class="stat-card" style="--sc:var(--info)">
+      <div class="st-lbl">${L==='ur'?'پانی':'Water'}</div>
+      <div class="st-val">${todayLog.water}</div>
+      <div class="st-unit">/${r.waterGlasses} ${L==='ur'?'گلاس':'gl'}</div>
+      <div class="st-bar"><div class="st-bar-fill" style="width:${Math.min(100,todayLog.water/r.waterGlasses*100)}%;background:var(--info)"></div></div>
+    </div>
+    <div class="stat-card" style="--sc:${r.bmi<25?'var(--accent)':r.bmi<30?'var(--warn)':'var(--danger)'}">
+      <div class="st-lbl">BMI</div>
+      <div class="st-val">${r.bmi}</div>
+      <div class="st-unit">${bmiLbl}</div>
+    </div>`;
+}
+
+// ============================================================
+// NUTRIENTS
+// ============================================================
+function renderNutrients(){
+  const r=userReqs,tot=getTotals();
+  const ns=[
+    {k:'protein',v:tot.protein,tg:r.protein,u:'g',c:'#60a5fa'},
+    {k:'carbs',v:tot.carbs,tg:r.carbs,u:'g',c:'#f59e0b'},
+    {k:'fat',v:tot.fat,tg:r.fat,u:'g',c:'#ef4444'},
+    {k:'fiber',v:tot.fiber,tg:r.fiber,u:'g',c:'#34d399'},
+    {k:'sodium',v:tot.sodium,tg:r.sodium,u:'mg',c:'#a78bfa'},
+  ];
+  document.getElementById('nut-grid').innerHTML=ns.map(n=>{
+    const pct=Math.min(120,Math.round(n.v/n.tg*100));
+    const st=pct<50?'var(--danger)':pct<80?'var(--warn)':pct<=105?'var(--accent)':'var(--danger)';
+    return `<div class="nut-item">
+      <div class="nut-name">${t('nutrients',n.k)}</div>
+      <div class="nut-val" style="color:${n.c}">${n.v}${n.u}</div>
+      <div class="nut-tgt">${L==='ur'?'ہدف':'Target'}: ${n.tg}${n.u}</div>
+      <div class="nb"><div class="nb-fill" style="width:${pct}%;background:${st}"></div></div>
+      <div class="nb-pct" style="color:${st}">${pct}%</div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// QUICK ADD
+// ============================================================
+function renderQuickAdd(){
+  const all=[...FDB,...customFoods];
+  document.getElementById('quick-grid').innerHTML=QUICK_ITEMS.map(qi=>{
+    const f=all.find(x=>x.id===qi.id);if(!f)return'';
+    const g=qi.unit==='pc'?(f.g||100):qi.qty;
+    const cal=Math.round(f.c*g/100);
+    const nm=L==='ur'?f.n:f.e;
+    return `<div class="quick-item" onclick="quickAdd('${qi.id}',${g})">
+      <div class="qi-icon">${qi.icon}</div>
+      <div class="qi-name">${nm}</div>
+      <div class="qi-cal">${cal} kcal</div>
+    </div>`;
+  }).join('');
+}
+
+function quickAdd(foodId,grams){
+  autoSelectMeal();
+  const meal=document.getElementById('fm-meal').value;
+  todayLog.meals[meal].push({foodId,grams});
+  saveLog();refreshAll();
+  showToast(L==='ur'?'✅ ایڈ ہو گیا!':'✅ Added!');
+}
+
+function showToast(msg){
+  const t=document.createElement('div');
+  t.textContent=msg;
+  Object.assign(t.style,{position:'fixed',bottom:'70px',left:'50%',transform:'translateX(-50%)',
+    background:'var(--accent)',color:'#000',padding:'8px 18px',borderRadius:'20px',
+    fontSize:'13px',fontWeight:'700',zIndex:'999',opacity:'1',transition:'opacity .5s'});
+  document.body.appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';setTimeout(()=>t.remove(),500);},2000);
+}
+
+// ============================================================
+// MEALS
+// ============================================================
+function renderMeals(){
+  const all=[...FDB,...customFoods];
+  const hasDiabetes=currentUser.conditions?.some(c=>['diabetes','prediabetic'].includes(c));
+  document.getElementById('meal-sections').innerHTML=['breakfast','lunch','dinner','snack'].map(key=>{
+    const items=todayLog.meals[key];
+    const mCal=items.reduce((s,it)=>{const f=all.find(x=>x.id===it.foodId);return s+(f?f.c*it.grams/100:0);},0);
+    const mNm=t('meals',key);
+    return`<div class="meal-section">
+      <div class="meal-hdr">
+        <div class="meal-title">${mNm}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="meal-kcal">${Math.round(mCal)} kcal</span>
+          <button class="btn-sm" onclick="setMealFocus('${key}')">${t('add_btn')}</button>
+        </div>
+      </div>
+      <div class="meal-items">
+        ${items.length===0?`<div class="empty-meal">${t('no_food')}</div>`:
+        items.map((it,idx)=>{
+          const f=all.find(x=>x.id===it.foodId);if(!f)return'';
+          const cal=Math.round(f.c*it.grams/100);
+          const nm=L==='ur'?f.n:f.e;
+          const warnIcon=hasDiabetes&&HIGH_SUGAR_IDS.has(f.id)?'<span title="High Sugar">🍬</span>':'';
+          return`<div class="meal-item">
+            <div class="mi-name">${warnIcon}${nm} <span style="color:var(--text3);font-size:10px">(${it.grams}g)</span></div>
+            <div class="mi-info">
+              <div class="mi-macros">P${Math.round(f.p*it.grams/100)}g C${Math.round(f.cb*it.grams/100)}g F${Math.round(f.f*it.grams/100)}g</div>
+              <span class="mi-cal">${cal}</span>
+              <button class="del-btn" onclick="removeFood('${key}',${idx})">✕</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ============================================================
+// FOOD SEARCH
+// ============================================================
+let sT;
+function searchFood(q){
+  clearTimeout(sT);
+  sT=setTimeout(()=>{
+    const qr=q.toLowerCase().trim();
+    if(qr.length<2){document.getElementById('s-results').style.display='none';return;}
+    const all=[...FDB,...customFoods];
+    const hasDiabetes=currentUser?.conditions?.some(c=>['diabetes','prediabetic'].includes(c));
+    const res=all.filter(f=>f.n.includes(qr)||(f.e||'').toLowerCase().includes(qr)).slice(0,12);
+    const el=document.getElementById('s-results');
+    el.innerHTML=res.length===0?`<div style="padding:12px;color:var(--text3);font-size:12px;text-align:center">${L==='ur'?'نہیں ملا':'Not found'}</div>`:
+      res.map(f=>{
+        const nm=L==='ur'?f.n:f.e;
+        const isHighSugar=hasDiabetes&&HIGH_SUGAR_IDS.has(f.id);
+        const warn=isHighSugar?'<span class="warn-badge" title="High Sugar">⚠️</span>':'';
+        return`<div class="s-item" onclick="selectFood('${f.id}')">
+          <span class="s-name">${warn}${nm}</span>
+          <span class="s-cal">${f.c} kcal/100g</span>
+        </div>`;
+      }).join('');
+    el.style.display='block';
+  },280);
+}
+
+function selectFood(id){
+  const all=[...FDB,...customFoods];
+  selFood=all.find(f=>f.id===id);
+  document.getElementById('s-results').style.display='none';
+  document.getElementById('food-search').value='';
+  openFoodModal();
+}
+
+function setMealFocus(meal){
+  document.getElementById('fm-meal').value=meal;
+  document.getElementById('food-search').focus();
+  showTab('food');
+}
+
+function openFoodModal(){
+  if(!selFood)return;
+  const nm=L==='ur'?selFood.n:selFood.e;
+  document.getElementById('fm-name').textContent=nm;
+  document.getElementById('fm-qty').value=selFood.per==='pc'?'1':'100';
+  document.getElementById('fm-unit').value=selFood.per==='pc'?'piece':'g';
+  // Medical warning
+  const hasDiabetes=currentUser?.conditions?.some(c=>['diabetes','prediabetic'].includes(c));
+  const wEl=document.getElementById('fm-warning');
+  if(hasDiabetes&&HIGH_SUGAR_IDS.has(selFood.id)){
+    wEl.style.display='flex';
+    document.getElementById('fm-warning-text').textContent=t('sugar_warning');
+  }else{wEl.style.display='none';}
+  updatePreview();
+  document.getElementById('food-modal').classList.add('open');
+}
+
+function updatePreview(){
+  if(!selFood)return;
+  const qty=parseFloat(document.getElementById('fm-qty').value)||0;
+  const unit=document.getElementById('fm-unit').value;
+  let g=qty;
+  if(unit==='piece')g=qty*(selFood.g||100);
+  else if(unit==='tbsp')g=qty*15;
+  else if(unit==='cup')g=qty*240;
+  const f=selFood,fc=g/100;
+  document.getElementById('fm-preview').innerHTML=`
+    <div><div class="pv-val" style="color:var(--accent)">${Math.round(f.c*fc)}</div><div class="pv-lbl">kcal</div></div>
+    <div><div class="pv-val" style="color:#60a5fa">${Math.round(f.p*fc*10)/10}g</div><div class="pv-lbl">${L==='ur'?'پروٹین':'Protein'}</div></div>
+    <div><div class="pv-val" style="color:#f59e0b">${Math.round(f.cb*fc*10)/10}g</div><div class="pv-lbl">${L==='ur'?'کاربز':'Carbs'}</div></div>
+    <div><div class="pv-val" style="color:#ef4444">${Math.round(f.f*fc*10)/10}g</div><div class="pv-lbl">${L==='ur'?'فیٹ':'Fat'}</div></div>`;
+}
+
+function confirmFood(){
+  if(!selFood)return;
+  const qty=parseFloat(document.getElementById('fm-qty').value)||0;
+  const unit=document.getElementById('fm-unit').value;
+  const meal=document.getElementById('fm-meal').value;
+  let g=qty;
+  if(unit==='piece')g=qty*(selFood.g||100);
+  else if(unit==='tbsp')g=qty*15;
+  else if(unit==='cup')g=qty*240;
+  // Add oil if toggled
+  if(document.getElementById('oil-chk').checked){
+    const oilType=document.getElementById('oil-type').value;
+    const oilTbsp=parseFloat(document.getElementById('oil-tbsp').value)||0;
+    if(oilTbsp>0){todayLog.meals[meal].push({foodId:oilType,grams:Math.round(oilTbsp*14)});}
+  }
+  todayLog.meals[meal].push({foodId:selFood.id,grams:Math.round(g)});
+  saveLog();closeModal('food-modal');refreshAll();
+}
+
+function removeFood(meal,idx){todayLog.meals[meal].splice(idx,1);saveLog();refreshAll();}
+
+// OIL TOGGLE
+function toggleOilSelector(checked){
+  document.getElementById('oil-selector').classList.toggle('show',!!checked);
+  document.getElementById('oil-chk').checked=!!checked;
+}
+
+// CUSTOM FOOD
+function openCustomModal(){document.getElementById('custom-modal').classList.add('open');}
+function saveCustomFood(){
+  const name=document.getElementById('cf-name').value;
+  const cal=parseFloat(document.getElementById('cf-cal').value);
+  if(!name||!cal)return alert(L==='ur'?'نام اور کیلوریز ضروری':'Name and calories required');
+  const food={id:'cf_'+Date.now(),n:name,e:name,c:cal,
+    p:parseFloat(document.getElementById('cf-pro').value)||0,
+    cb:parseFloat(document.getElementById('cf-carb').value)||0,
+    f:parseFloat(document.getElementById('cf-fat').value)||0,
+    fi:parseFloat(document.getElementById('cf-fib').value)||0,
+    s:parseFloat(document.getElementById('cf-sod').value)||0,per:'g',custom:true};
+  customFoods.push(food);
+  localStorage.setItem(`np_cf_${currentUser.email}`,JSON.stringify(customFoods));
+  closeModal('custom-modal');showToast(L==='ur'?'✅ محفوظ!':'✅ Saved!');
+}
+
+// AI SEARCH
+function openAIModal(){document.getElementById('ai-modal').classList.add('open');}
+async function doAISearch(){
+  const q=document.getElementById('ai-query').value.trim();if(!q)return;
+  const el=document.getElementById('ai-result');
+  el.style.display='block';
+  el.innerHTML=`<div class="loading-anim"><div class="dots"><span></span><span></span><span></span></div><span>${t('loading')}</span></div>`;
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',
+        content:`Pakistani/Indian food nutrition expert. Give per-100g nutrition for: "${q}". Reply ONLY in JSON (no markdown):
+        {"name":"Urdu name","nameEn":"English name","cal":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sodium":number,"notes":"Urdu note max 20 words"}`
+      }]})});
+    const d=await resp.json();
+    let food;try{food=JSON.parse(d.content[0].text.replace(/```json|```/g,'').trim());}
+    catch{const m=d.content[0].text.match(/\{[\s\S]*\}/);food=JSON.parse(m[0]);}
+    el.innerHTML=`<div style="background:var(--surface2);border-radius:12px;padding:12px;">
+      <div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:8px">${L==='ur'?food.name:food.nameEn}</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;margin-bottom:10px">
+        <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--accent)">${food.cal}</div><div style="font-size:9px;color:var(--text3)">kcal</div></div>
+        <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#60a5fa">${food.protein}g</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'پروٹین':'Protein'}</div></div>
+        <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#f59e0b">${food.carbs}g</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'کاربز':'Carbs'}</div></div>
+        <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#ef4444">${food.fat}g</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'فیٹ':'Fat'}</div></div>
+        <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#34d399">${food.fiber}g</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'فائبر':'Fiber'}</div></div>
+        <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#a78bfa">${food.sodium}mg</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'سوڈیم':'Sodium'}</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${food.notes||''}</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn" style="flex:1" onclick="addAIFood(${JSON.stringify(food).replace(/"/g,"'")})">${t('add_to_log')}</button>
+        <button class="btn-sm" onclick="saveAIFood(${JSON.stringify(food).replace(/"/g,"'")})">${t('save_db')}</button>
+      </div>
+    </div>`;
+  }catch(e){el.innerHTML=`<div class="alert a-danger">${L==='ur'?'خرابی آئی':'Error: '+e.message}</div>`;}
+}
+function addAIFood(fd){const f={...fd,id:'ai_'+Date.now(),n:fd.name,e:fd.nameEn,c:fd.cal,p:fd.protein,cb:fd.carbs,f:fd.fat,fi:fd.fiber,s:fd.sodium,per:'g',custom:true};customFoods.push(f);selFood=f;closeModal('ai-modal');openFoodModal();}
+function saveAIFood(fd){const f={...fd,id:'ai_'+Date.now(),n:fd.name,e:fd.nameEn,c:fd.cal,p:fd.protein,cb:fd.carbs,f:fd.fat,fi:fd.fiber,s:fd.sodium,per:'g',custom:true};customFoods.push(f);localStorage.setItem(`np_cf_${currentUser.email}`,JSON.stringify(customFoods));showToast(L==='ur'?'✅ محفوظ!':'✅ Saved!');}
+
+// ============================================================
+// EXERCISE
+// ============================================================
+function renderExGrid(){
+  document.getElementById('ex-grid').innerHTML=EX.map(e=>`
+    <div class="ex-card ${selEx?.id===e.id?'sel':''}" onclick="selectEx('${e.id}')">
+      <div class="ex-icon">${e.i}</div>
+      <div class="ex-name">${L==='ur'?e.n:e.e}</div>
+      <div class="ex-rate">${e.r} kcal/min</div>
+    </div>`).join('');
+
+  const exLog=todayLog.exercise.filter(e=>!e.isWalk);
+  document.getElementById('ex-log').innerHTML=exLog.length===0
+    ?`<div style="color:var(--text3);font-size:12px;text-align:center;padding:8px">${t('no_exercise')}</div>`
+    :exLog.map((e,i)=>`<div class="ex-log-item">
+        <div class="eli-name">${e.i} ${L==='ur'?e.n:e.e||e.n} — ${e.minutes} ${L==='ur'?'منٹ':'min'}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="eli-cal">-${e.burned} kcal</span>
+          <button class="del-btn" onclick="removeEx(${i})">✕</button>
+        </div>
+      </div>`).join('');
+}
+
+function selectEx(id){selEx=EX.find(e=>e.id===id);renderExGrid();}
+
+function logExercise(){
+  if(!selEx)return alert(L==='ur'?'ورزش منتخب کریں':'Select exercise');
+  const mins=parseInt(document.getElementById('ex-mins').value);
+  if(!mins||mins<=0)return alert(L==='ur'?'منٹ درج کریں':'Enter minutes');
+  const burned=Math.round(selEx.r*mins*(currentUser.weight/70));
+  todayLog.exercise.push({...selEx,minutes:mins,burned});
+  saveLog();refreshAll();
+}
+
+function removeEx(idx){
+  const nwIdxs=todayLog.exercise.map((e,i)=>!e.isWalk?i:-1).filter(i=>i>=0);
+  if(nwIdxs[idx]!==undefined){todayLog.exercise.splice(nwIdxs[idx],1);saveLog();refreshAll();}
+}
+
+// WALK
+function setWalkMode(m){
+  walkMode=m;
+  document.querySelectorAll('.wtab').forEach((el,i)=>el.classList.toggle('active',['steps','km','min'][i]===m));
+  renderWalkInput();
+}
+
+function renderWalkInput(){
+  const hints={steps:{ur:'اوسط: 1000 قدم = 40 kcal',en:'Avg: 1000 steps ≈ 40 kcal'},km:{ur:'اوسط: 1 km = 55 kcal',en:'Avg: 1 km ≈ 55 kcal'},min:{ur:'اوسط: 4 kcal/منٹ',en:'Avg: 4 kcal/min'}};
+  const phs={steps:{ur:'مثلاً 8000',en:'e.g. 8000'},km:{ur:'مثلاً 3.5',en:'e.g. 3.5'},min:{ur:'مثلاً 30',en:'e.g. 30'}};
+  const labs={steps:{ur:'قدموں کی تعداد',en:'Number of Steps'},km:{ur:'فاصلہ (کلومیٹر)',en:'Distance (km)'},min:{ur:'وقت (منٹ)',en:'Time (minutes)'}};
+  const wLogs=todayLog.exercise.filter(e=>e.isWalk);
+  document.getElementById('walk-input').innerHTML=`
+    <div class="fg">
+      <label>${L==='ur'?labs[walkMode].ur:labs[walkMode].en}</label>
+      <input type="number" id="walk-val" placeholder="${L==='ur'?phs[walkMode].ur:phs[walkMode].en}" step="${walkMode==='km'?'.1':'1'}" dir="ltr"
+        style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);outline:none;font-family:inherit">
+    </div>
+    <div class="muted mt8">${L==='ur'?hints[walkMode].ur:hints[walkMode].en}</div>
+    ${wLogs.length>0?`<div style="margin-top:10px">`+wLogs.map((w,i)=>`<div class="ex-log-item"><div class="eli-name">🚶 ${w.display}</div><div style="display:flex;align-items:center;gap:8px"><span class="eli-cal">-${w.burned} kcal</span><button class="del-btn" onclick="removeWalk(${i})">✕</button></div></div>`).join('')+`</div>`:''}`;
+}
+
+function logWalk(){
+  const val=parseFloat(document.getElementById('walk-val')?.value);
+  if(!val||val<=0)return;
+  const w=currentUser.weight;
+  let burned,display;
+  if(walkMode==='steps'){burned=Math.round(val/1000*40*(w/70));display=`${val.toLocaleString()} ${L==='ur'?'قدم':'steps'}`;}
+  else if(walkMode==='km'){burned=Math.round(val*55*(w/70));display=`${val} km`;}
+  else{burned=Math.round(val*4*(w/70));display=`${val} ${L==='ur'?'منٹ':'min'}`;}
+  todayLog.exercise.push({id:'walk',n:'پیدل چلنا',e:'Walking',i:'🚶',isWalk:true,burned,display});
+  saveLog();refreshAll();
+}
+
+function removeWalk(idx){
+  const wIdxs=todayLog.exercise.map((e,i)=>e.isWalk?i:-1).filter(i=>i>=0);
+  if(wIdxs[idx]!==undefined){todayLog.exercise.splice(wIdxs[idx],1);saveLog();refreshAll();}
+}
+
+// ============================================================
+// WATER — FIXED with dynamic goal
+// ============================================================
+function renderWater(){
+  const r=userReqs;
+  const totalGlasses=r.waterGlasses;
+  const current=Math.min(todayLog.water,totalGlasses+4); // allow a few extra
+  
+  document.getElementById('water-label-text').textContent=
+    L==='ur'?`ہر گلاس = 250ml | ہدف: ${totalGlasses} گلاس (${Math.round(r.waterMl/1000*10)/10}L)`
+    :`Each glass = 250ml | Goal: ${totalGlasses} glasses (${Math.round(r.waterMl/1000*10)/10}L)`;
+
+  // Build 4-column grid
+  const grid=document.getElementById('water-grid');
+  grid.innerHTML='';
+  // show totalGlasses glasses (min 8, max 12)
+  const show=Math.max(8,Math.min(12,totalGlasses));
+  for(let i=0;i<show;i++){
+    const div=document.createElement('div');
+    div.className='wglass'+(i<todayLog.water?' filled':'');
+    div.onclick=()=>toggleWater(i);
+    grid.appendChild(div);
+  }
+  document.getElementById('water-count').textContent=`${todayLog.water}/${totalGlasses}`;
+  document.getElementById('water-ml').textContent=`${todayLog.water*250} ml`;
+  document.getElementById('water-goal-text').textContent=
+    L==='ur'?`آپ کا ہدف: وزن ${currentUser.weight}kg × 35ml = ${r.waterMl}ml`
+    :`Your goal: ${currentUser.weight}kg × 35ml = ${r.waterMl}ml`;
+}
+
+function toggleWater(idx){todayLog.water=idx<todayLog.water?idx:idx+1;saveLog();renderWater();renderStats();renderDashSummary();renderGoalBanner();}
+
+// BEVERAGES
+function renderBeverages(){
+  document.getElementById('bev-grid').innerHTML=BEVERAGES.map(b=>{
+    const hasDm=currentUser?.conditions?.some(c=>['diabetes','prediabetic'].includes(c));
+    const warn=hasDm&&b.highSugar?'⚠️':'';
+    return`<div class="bev-card" onclick="addBev('${b.id}','${L==='ur'?b.n:b.e}',${b.cal})">
+      <div class="bev-icon">${b.i}</div>
+      <div class="bev-name">${warn}${L==='ur'?b.n:b.e}</div>
+      <div class="bev-cal">${b.c||b.cal} kcal</div>
+    </div>`;}).join('');
+  document.getElementById('bev-log').innerHTML=todayLog.beverages.length===0?'':
+    todayLog.beverages.map((b,i)=>`<div class="ex-log-item">
+      <span style="font-size:12px">${b.name}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--info)">${b.cal} kcal</span>
+        <button class="del-btn" onclick="removeBev(${i})">✕</button>
+      </div>
+    </div>`).join('');
+}
+function addBev(id,name,cal){todayLog.beverages.push({id,name,cal});saveLog();renderBeverages();renderStats();renderGoalBanner();renderDashSummary();}
+function removeBev(idx){todayLog.beverages.splice(idx,1);saveLog();refreshAll();}
+
+// ============================================================
+// 7-DAY CHART
+// ============================================================
+function render7DayChart(){
+  const labels=[];const calData=[];const dates=[];
+  for(let i=6;i>=0;i--){
+    const d=new Date();d.setDate(d.getDate()-i);
+    const dk=d.toISOString().split('T')[0];
+    dates.push(dk);
+    const dayLabel=d.toLocaleDateString(L==='ur'?'ur-PK':'en-PK',{weekday:'short'});
+    labels.push(dayLabel);
+    const saved=localStorage.getItem(`np_log_${currentUser.email}_${dk}`);
+    if(saved){
+      const log=JSON.parse(saved);
+      const all=[...FDB,...customFoods];
+      let cal=0;
+      Object.values(log.meals).forEach(items=>items.forEach(it=>{const f=all.find(x=>x.id===it.foodId);if(f)cal+=f.c*it.grams/100;}));
+      (log.beverages||[]).forEach(b=>cal+=b.cal);
+      calData.push(Math.round(cal));
+    }else{calData.push(null);}
+  }
+
+  const ctx=document.getElementById('trend-chart').getContext('2d');
+  if(trendChart){trendChart.destroy();}
+  const gc=userGoals.calories||userReqs.calories;
+  trendChart=new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[
+        {label:L==='ur'?'کیلوریز':'Calories',data:calData,borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.1)',tension:.4,fill:true,pointBackgroundColor:'#22c55e',pointRadius:5,spanGaps:true},
+        {label:L==='ur'?'ہدف':'Goal',data:Array(7).fill(gc),borderColor:'#f59e0b',borderDash:[5,5],pointRadius:0,fill:false}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:TH==='dark'?'#9dc4a6':'#166534',font:{size:11}}}},
+      scales:{
+        x:{grid:{color:TH==='dark'?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'},ticks:{color:TH==='dark'?'#4a7a54':'#4ade80',font:{size:10}}},
+        y:{grid:{color:TH==='dark'?'rgba(255,255,255,.05)':'rgba(0,0,0,.05)'},ticks:{color:TH==='dark'?'#4a7a54':'#4ade80',font:{size:10}}}
+      }
+    }
+  });
+}
+
+// ============================================================
+// GOALS TAB
+// ============================================================
+function renderGoalsTab(){
+  const r=userReqs,gc=userGoals.calories||r.calories,tw=userGoals.targetWeight||(currentUser.weight-10);
+  document.getElementById('g-cal').value=gc;
+  document.getElementById('g-wt').value=tw;
+  const wtLose=Math.max(0,currentUser.weight-tw);
+  const dailyDef=r.tdee-gc;
+  const days=dailyDef>0?Math.round(wtLose*7700/dailyDef):0;
+  const weeks=Math.round(days/7);
+  document.getElementById('deficit-card').innerHTML=`
+    <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:8px">${t('weight_analysis')}</div>
+    ${[
+      [t('current_weight'),`${currentUser.weight} kg`,'var(--text)'],
+      [t('target_weight2'),`${tw} kg`,'var(--accent)'],
+      [t('to_lose'),`${wtLose.toFixed(1)} kg`,'var(--warn)'],
+      [t('daily_need'),`${r.tdee} kcal`,'var(--text)'],
+      [t('your_goal'),`${gc} kcal`,'var(--accent)'],
+      [t('daily_deficit'),dailyDef>0?`-${dailyDef} kcal`:`+${Math.abs(dailyDef)} kcal`,dailyDef>0?'var(--accent)':'var(--danger)'],
+    ].map(([l,v,c])=>`<div class="def-row"><span class="def-lbl">${l}</span><span class="def-val" style="color:${c}">${v}</span></div>`).join('')}
+    ${dailyDef>0?`<div class="pred-box">⏱️ ${weeks} ${t('weeks')} (${days} ${t('days')}) ${t('goal_time')}</div>`:''}`;
+
+  document.getElementById('nut-plan').innerHTML=`<div style="display:grid;gap:5px">${
+    [[t('nutrients','calories'),`${gc} kcal`],
+     [t('nutrients','protein'),`${r.protein}g (${Math.round(r.protein*4/gc*100)}%)`],
+     [t('nutrients','carbs'),`${r.carbs}g (${Math.round(r.carbs*4/gc*100)}%)`],
+     [t('nutrients','fat'),`${r.fat}g (${Math.round(r.fat*9/gc*100)}%)`],
+     [t('nutrients','fiber'),`${r.fiber}g`],
+     [L==='ur'?'پانی':'Water',`${Math.round(r.waterMl/1000*10)/10}L (${r.waterGlasses} ${L==='ur'?'گلاس':'glasses'})`],
+    ].map(([l,v])=>`<div class="rep-row"><span class="rep-lbl">${l}</span><span style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px">${v}</span></div>`).join('')
+  }</div>`;
+}
+
+function saveGoals(){
+  const cal=parseInt(document.getElementById('g-cal').value);
+  const wt=parseFloat(document.getElementById('g-wt').value);
+  if(!cal||cal<800)return alert(L==='ur'?'800 سے کم مضر ہے':'Below 800 kcal is harmful');
+  userGoals={calories:cal,targetWeight:wt};
+  localStorage.setItem(`np_goals_${currentUser.email}`,JSON.stringify(userGoals));
+  refreshAll();showToast(L==='ur'?'✅ ہدف محفوظ!':'✅ Goals saved!');
+}
+
+// ============================================================
+// PROFILE
+// ============================================================
+function renderProfile(){
+  const u=currentUser,r=userReqs;
+  document.getElementById('prof-grid').innerHTML=[
+    {l:t('name'),v:u.name,vs:"font-family:'Noto Nastaliq Urdu',serif;font-size:14px"},
+    {l:t('age'),v:`${u.age} ${L==='ur'?'سال':'yrs'}`},
+    {l:t('weight'),v:`${u.weight} kg`},
+    {l:t('height'),v:`${u.height} cm`},
+    {l:'BMI',v:r.bmi,vc:r.bmi<25?'var(--accent)':r.bmi<30?'var(--warn)':'var(--danger)'},
+    {l:'TDEE',v:`${r.tdee} kcal`},
+  ].map(c=>`<div class="pchip"><div class="pchip-lbl">${c.l}</div><div class="pchip-val" style="${c.vs||''}${c.vc?'color:'+c.vc:''}">${c.v}</div></div>`).join('');
+
+  document.getElementById('req-display').innerHTML=`<div style="display:grid;gap:5px">${
+    [[t('nutrients','calories'),userReqs.calories+' kcal'],
+     [t('nutrients','protein'),userReqs.protein+'g'],
+     [t('nutrients','carbs'),userReqs.carbs+'g'],
+     [t('nutrients','fat'),userReqs.fat+'g'],
+     [t('nutrients','fiber'),userReqs.fiber+'g'],
+     [L==='ur'?'پانی':'Water',`${Math.round(userReqs.waterMl/1000*10)/10}L`],
+    ].map(([l,v])=>`<div class="rep-row"><span class="rep-lbl">${l}</span><span style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px">${v}</span></div>`).join('')}
+  </div>`;
+
+  const cn=t('conds');
+  const conds=(u.conditions||[]).map(c=>cn[c]||c);
+  document.getElementById('med-display').innerHTML=conds.length===0
+    ?`<div class="tag tag-g">${L==='ur'?'کوئی بیماری نہیں':'No conditions'}</div>`
+    :conds.map(c=>`<div class="tag tag-y">${c}</div>`).join('');
+}
+
+// ============================================================
+// REPORT
+// ============================================================
+function renderReport(){
+  const tot=getTotals(),r=userReqs,gc=userGoals.calories||r.calories;
+  const score=calcScore(tot,r);
+  document.getElementById('rep-score').textContent=score+'/100';
+  document.getElementById('rep-score').style.color=score>=70?'var(--accent)':score>=50?'var(--warn)':'var(--danger)';
+  document.getElementById('rep-content').innerHTML=`<div style="display:grid;gap:4px">${
+    [[L==='ur'?'کیلوریز':'Calories',Math.round(tot.cal),gc,'kcal'],
+     [L==='ur'?'ورزش':'Exercise',tot.exerciseBurn,'-','kcal'],
+     [L==='ur'?'خالص':'Net Cal',tot.netCal,gc,'kcal'],
+     [t('nutrients','protein'),tot.protein,r.protein,'g'],
+     [t('nutrients','carbs'),tot.carbs,r.carbs,'g'],
+     [t('nutrients','fat'),tot.fat,r.fat,'g'],
+     [t('nutrients','fiber'),tot.fiber,r.fiber,'g'],
+     [L==='ur'?'پانی':'Water',todayLog.water,r.waterGlasses,L==='ur'?'گلاس':'gl'],
+    ].map(([l,c,tg,u])=>{
+      const pct=tg!=='-'?Math.round(c/tg*100):null;
+      const ok=pct===null||(pct>=80&&pct<=115);const low=pct!==null&&pct<80;
+      return`<div class="rep-row">
+        <span class="rep-lbl">${l}</span>
+        <div class="rep-vals">
+          <span>${c}${u}</span><span style="color:var(--text3)">/${tg}${u}</span>
+          ${pct!==null?`<span style="color:${ok?'var(--accent)':low?'var(--danger)':'var(--warn)'}">${pct}%</span><span>${ok?'✅':low?'⬇️':'⬆️'}</span>`:''}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+async function generateReport(){
+  const tot=getTotals(),r=userReqs,u=currentUser,score=calcScore(tot,r);
+  const el=document.getElementById('rep-analysis');
+  el.style.display='block';el.textContent=L==='ur'?'تجزیہ تیار ہو رہا ہے...':'Generating...';
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1200,messages:[{role:'user',
+        content:`Pakistani nutrition doctor. Analyze for ${u.name}, age ${u.age}, ${u.weight}kg, conditions: ${(u.conditions||[]).join(', ')||'none'}.
+        Calories: ${Math.round(tot.cal)}/${userGoals.calories||r.calories}, Protein: ${tot.protein}/${r.protein}g, Carbs: ${tot.carbs}/${r.carbs}g, Fat: ${tot.fat}/${r.fat}g, Fiber: ${tot.fiber}/${r.fiber}g.
+        Water: ${todayLog.water}/${r.waterGlasses} glasses. Exercise: ${todayLog.exercise.map(e=>(e.e||e.n)+' '+e.minutes+'min').join(', ')||'none'}. Score: ${score}/100.
+        Write in ${L==='ur'?'Urdu':'English'}: 1) What was good 2) What needs improvement 3) Three practical tips for tomorrow 4) Medical condition-specific advice.`
+      }]})});
+    const d=await resp.json();el.textContent=d.content[0].text;
+  }catch(e){el.textContent=L==='ur'?'خرابی آئی':'Error';}
+}
+
+// ============================================================
+// DASHBOARD SUMMARY & ALERTS
+// ============================================================
+function renderDashSummary(){
+  const tot=getTotals(),r=userReqs,gc=userGoals.calories||r.calories;
+  const al=t('alerts');
+  const alerts=[];
+  if(tot.protein<r.protein*.6)alerts.push({t:'a-danger',m:al.low_protein});
+  if(tot.carbs>r.carbs*1.2)alerts.push({t:'a-warn',m:al.high_carbs});
+  if(tot.fiber<r.fiber*.5)alerts.push({t:'a-warn',m:al.low_fiber});
+  if(todayLog.water<r.waterGlasses*.5)alerts.push({t:'a-warn',m:al.low_water+` (${todayLog.water}/${r.waterGlasses})`});
+  if(tot.netCal>gc*1.1)alerts.push({t:'a-danger',m:al.over_cal});
+  if(calcScore(tot,r)>=70)alerts.push({t:'a-ok',m:al.good});
+  document.getElementById('alerts-box').innerHTML=alerts.map(a=>`<div class="alert ${a.t}">${a.m}</div>`).join('');
+
+  document.getElementById('dash-summary').innerHTML=`<div style="display:grid;gap:4px">${
+    [[L==='ur'?'کیلوریز':'Calories',Math.round(tot.cal),gc,'kcal'],
+     [t('nutrients','protein'),tot.protein,r.protein,'g'],
+     [t('nutrients','carbs'),tot.carbs,r.carbs,'g'],
+     [t('nutrients','fiber'),tot.fiber,r.fiber,'g'],
+     [L==='ur'?'پانی':'Water',todayLog.water,r.waterGlasses,L==='ur'?'گلاس':'gl'],
+    ].map(([l,c,tg,u])=>{
+      const pct=Math.round(c/tg*100);
+      const ok=pct>=80&&pct<=115,low=pct<80;
+      return`<div class="rep-row">
+        <span class="rep-lbl">${l}</span>
+        <div class="rep-vals">
+          <span>${c}${u}</span><span style="color:var(--text3)">/${tg}${u}</span>
+          <span style="color:${ok?'var(--accent)':low?'var(--danger)':'var(--warn)'}">${pct}%</span>
+          <span>${ok?'✅':low?'⬇️':'⬆️'}</span>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+// ============================================================
+// ADVICE
+// ============================================================
+async function loadAdvice(){
+  const tot=getTotals(),r=userReqs,u=currentUser;
+  try{
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',
+        content:`Pakistani nutrition advisor. Patient: age ${u.age}, weight ${u.weight}kg, BMI ${r.bmi}, conditions: ${(u.conditions||[]).join(', ')||'none'}.
+        Today so far: ${Math.round(tot.cal)} kcal (goal ${userGoals.calories||r.calories}), protein ${tot.protein}g/${r.protein}g.
+        Write 2-3 sentences of warm, practical advice in ${L==='ur'?'Urdu (Nastaliq)':'English'}.`
+      }]})});
+    const d=await resp.json();
+    document.getElementById('advice-loading').style.display='none';
+    document.getElementById('advice-text').style.display='block';
+    document.getElementById('advice-text').textContent=d.content[0].text;
+  }catch{
+    document.getElementById('advice-loading').style.display='none';
+    document.getElementById('advice-text').style.display='block';
+    document.getElementById('advice-text').textContent=L==='ur'?'کھانا لاگ کریں اور مشورہ حاصل کریں۔':'Log your meals to receive personalized advice.';
+  }
+}
+
+// ============================================================
+// TAB NAVIGATION
+// ============================================================
+function showTab(id){
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.ntab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('pane-'+id).classList.add('active');
+  const tabs=['dashboard','food','exercise','water','goals','report','profile'];
+  document.querySelectorAll('.ntab')[tabs.indexOf(id)]?.classList.add('active');
+  if(id==='report')renderReport();
+  if(id==='goals')renderGoalsTab();
+  if(id==='food'){renderQuickAdd();autoSelectMeal();}
+  if(id==='exercise'){renderExGrid();renderWalkInput();}
+  if(id==='water')renderWater();
+  if(id==='dashboard'){render7DayChart();}
+}
+
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+
+function refreshAll(){
+  renderGoalBanner();renderStats();renderNutrients();renderMeals();
+  renderQuickAdd();renderExGrid();renderWalkInput();
+  renderWater();renderBeverages();renderDashSummary();renderReport();
+}
+
+// Overlay close
+document.querySelectorAll('.modal-overlay').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)m.classList.remove('open');}));
+
+// ============================================================
+// PWA
+// ============================================================
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();deferredPrompt=e;
+  document.getElementById('install-banner').style.display='flex';
+});
+function installPWA(){
+  if(!deferredPrompt)return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(()=>{deferredPrompt=null;document.getElementById('install-banner').style.display='none';});
+}
+window.addEventListener('appinstalled',()=>{document.getElementById('install-banner').style.display='none';});
+
+// Service Worker
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+
+// Restore session
+window.addEventListener('load',()=>{
+  const s=localStorage.getItem('np_current');
+  if(s){try{const u=JSON.parse(s);if(!window._pendingFirebaseUser)loginUser(u);}catch(e){}}
+  if(window._pendingFirebaseUser&&!window._appReady){loginUser(window._pendingFirebaseUser);}
+});
+</script>
+</body>
+</html>
