@@ -660,25 +660,44 @@ body::before{
     </div>
 
     <!-- GOALS TAB -->
-    <div class="tab-pane" id="pane-goals">
-      <div class="card">
-        <div class="card-title">🎯 <span data-i="calorie_goal">کیلوری ہدف</span></div>
-        <div class="g2">
-          <div class="fg"><label data-i="daily_target">روزانہ ہدف (kcal)</label>
-            <input type="number" id="g-cal" placeholder="1600" dir="ltr" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);outline:none;font-family:inherit">
-          </div>
-          <div class="fg"><label data-i="target_weight">ہدف وزن (kg)</label>
-            <input type="number" id="g-wt" placeholder="75" dir="ltr" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);outline:none;font-family:inherit">
-          </div>
-        </div>
-        <button class="btn" onclick="saveGoals()" data-i="save_goals">💾 ہدف محفوظ کریں</button>
-        <div class="deficit-card" id="deficit-card"></div>
+ <div class="tab-pane" id="pane-goals">
+  <div class="card">
+    <div class="card-title">🎯 <span data-i="calorie_goal">کیلوری ہدف</span></div>
+    
+    <div class="fg">
+      <label>آپ کتنے دنوں میں ہدف پورا کرنا چاہتے ہیں؟ (مدت)</label>
+      <input type="number" id="g-days" value="90" dir="ltr" oninput="recalcByDays()" 
+             style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);outline:none;font-family:inherit">
+      <p class="muted mt8">مثلاً: 90 دن یا 180 دن</p>
+    </div>
+
+    <div class="g2 mt12">
+      <div class="fg">
+        <label data-i="daily_target">تجویز کردہ ہدف (kcal)</label>
+        <input type="number" id="g-cal" dir="ltr" readonly style="opacity:0.7; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px; color:var(--text);">
       </div>
-      <div class="card">
-        <div class="card-title">📊 <span data-i="nutrient_plan">نیوٹرنٹ پلان</span></div>
-        <div id="nut-plan"></div>
+      <div class="fg">
+        <label>میرا اپنا ہدف (Manual)</label>
+        <input type="number" id="g-manual-cal" placeholder="مثلاً 1500" dir="ltr" 
+               style="width:100%;background:var(--surface2);border:2px solid var(--accent);border-radius:10px;padding:10px;color:var(--text);outline:none;font-family:inherit">
       </div>
     </div>
+
+    <div class="fg mt12">
+      <label data-i="target_weight">ہدف وزن (kg)</label>
+      <input type="number" id="g-wt" placeholder="75" dir="ltr" oninput="recalcByDays()"
+             style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px;color:var(--text);outline:none;font-family:inherit">
+    </div>
+
+    <button class="btn" onclick="saveGoals()" data-i="save_goals">💾 ہدف محفوظ کریں</button>
+    <div class="deficit-card" id="deficit-card"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">📊 <span data-i="nutrient_plan">نیوٹرنٹ پلان</span></div>
+    <div id="nut-plan"></div>
+  </div>
+</div>
 
     <!-- REPORT TAB -->
     <div class="tab-pane" id="pane-report">
@@ -1799,44 +1818,148 @@ function render7DayChart(){
 // ============================================================
 // GOALS TAB
 // ============================================================
-function renderGoalsTab(){
-  const r=userReqs,gc=userGoals.calories||r.calories,tw=userGoals.targetWeight||(currentUser.weight-10);
-  document.getElementById('g-cal').value=gc;
-  document.getElementById('g-wt').value=tw;
-  const wtLose=Math.max(0,currentUser.weight-tw);
-  const dailyDef=r.tdee-gc;
-  const days=dailyDef>0?Math.round(wtLose*7700/dailyDef):0;
-  const weeks=Math.round(days/7);
-  document.getElementById('deficit-card').innerHTML=`
-    <div style="font-size:13px;font-weight:700;color:var(--accent);margin-bottom:8px">${t('weight_analysis')}</div>
-    ${[
-      [t('current_weight'),`${currentUser.weight} kg`,'var(--text)'],
-      [t('target_weight2'),`${tw} kg`,'var(--accent)'],
-      [t('to_lose'),`${wtLose.toFixed(1)} kg`,'var(--warn)'],
-      [t('daily_need'),`${r.tdee} kcal`,'var(--text)'],
-      [t('your_goal'),`${gc} kcal`,'var(--accent)'],
-      [t('daily_deficit'),dailyDef>0?`-${dailyDef} kcal`:`+${Math.abs(dailyDef)} kcal`,dailyDef>0?'var(--accent)':'var(--danger)'],
-    ].map(([l,v,c])=>`<div class="def-row"><span class="def-lbl">${l}</span><span class="def-val" style="color:${c}">${v}</span></div>`).join('')}
-    ${dailyDef>0?`<div class="pred-box">⏱️ ${weeks} ${t('weeks')} (${days} ${t('days')}) ${t('goal_time')}</div>`:''}`;
+// ============================================================
+// GOALS & DURATION LOGIC (UPDATED)
+// ============================================================
 
-  document.getElementById('nut-plan').innerHTML=`<div style="display:grid;gap:5px">${
-    [[t('nutrients','calories'),`${gc} kcal`],
-     [t('nutrients','protein'),`${r.protein}g (${Math.round(r.protein*4/gc*100)}%)`],
-     [t('nutrients','carbs'),`${r.carbs}g (${Math.round(r.carbs*4/gc*100)}%)`],
-     [t('nutrients','fat'),`${r.fat}g (${Math.round(r.fat*9/gc*100)}%)`],
-     [t('nutrients','fiber'),`${r.fiber}g`],
-     [L==='ur'?'پانی':'Water',`${Math.round(r.waterMl/1000*10)/10}L (${r.waterGlasses} ${L==='ur'?'گلاس':'glasses'})`],
-    ].map(([l,v])=>`<div class="rep-row"><span class="rep-lbl">${l}</span><span style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px">${v}</span></div>`).join('')
-  }</div>`;
+function renderGoalsTab() {
+  const r = userReqs;
+  const tw = userGoals.targetWeight || (currentUser.weight - 10);
+  const daysGoal = userGoals.durationDays || 90;
+  
+  // ان پٹ فیلڈز میں ویلیوز ڈالنا
+  if(document.getElementById('g-wt')) document.getElementById('g-wt').value = tw;
+  if(document.getElementById('g-days')) document.getElementById('g-days').value = daysGoal;
+  
+  // بنیادی حساب کتاب
+  const weightToLose = Math.max(0, currentUser.weight - tw);
+  const totalCalorieDeficitNeeded = weightToLose * 7700; 
+  const dailyDeficitNeeded = Math.round(totalCalorieDeficitNeeded / daysGoal);
+  const suggestedCal = Math.round(r.tdee - dailyDeficitNeeded);
+
+  if(document.getElementById('g-cal')) document.getElementById('g-cal').value = suggestedCal;
+  if(document.getElementById('g-manual-cal')) {
+    document.getElementById('g-manual-cal').value = userGoals.manualCalories || suggestedCal;
+  }
+
+  // فنکشنز کو کال کریں تاکہ ڈسپلے اپڈیٹ ہو جائے
+  recalcByDays(); 
 }
 
-function saveGoals(){
-  const cal=parseInt(document.getElementById('g-cal').value);
-  const wt=parseFloat(document.getElementById('g-wt').value);
-  if(!cal||cal<800)return alert(L==='ur'?'800 سے کم مضر ہے':'Below 800 kcal is harmful');
-  userGoals={calories:cal,targetWeight:wt};
-  localStorage.setItem(`np_goals_${currentUser.email}`,JSON.stringify(userGoals));
-  refreshAll();showToast(L==='ur'?'✅ ہدف محفوظ!':'✅ Goals saved!');
+function recalcByDays() {
+  const tw = parseFloat(document.getElementById('g-wt').value) || currentUser.weight;
+  const daysInput = document.getElementById('g-days');
+  const manualInput = document.getElementById('g-manual-cal');
+  const r = userReqs; // r.tdee آپ کی نارمل ضرورت ہے
+
+  const weightToLose = Math.max(0, currentUser.weight - tw);
+  const totalCalNeededToBurn = weightToLose * 7700;
+
+  // 1. اگر یوزر نے "Manual" کیلوریز لکھی ہیں، تو دن نکالیں (Reverse Logic)
+  const manualCal = parseInt(manualInput.value);
+  if (manualCal > 800) {
+    const dailyDeficit = r.tdee - manualCal;
+    if (dailyDeficit > 0) {
+      const predictedDays = Math.round(totalCalNeededToBurn / dailyDeficit);
+      daysInput.value = predictedDays; 
+    }
+  }
+
+  // 2. دن کے حساب سے حساب کتاب (Normal Logic)
+  const days = parseInt(daysInput.value) || 90;
+  const dailyDeficitNeeded = Math.round(totalCalNeededToBurn / days);
+  const suggested = Math.round(r.tdee - dailyDeficitNeeded);
+  
+  if(document.getElementById('g-cal')) document.getElementById('g-cal').value = suggested;
+
+  // 3. نیوٹرنٹ پلان اپڈیٹ کریں (یہ مس تھا)
+  const finalCalTarget = manualCal || suggested;
+  updateNutrientPlan(finalCalTarget);
+
+  // 4. تجزیہ والا بکس (تفصیلی رپورٹ)
+  const defCard = document.getElementById('deficit-card');
+  if(defCard) {
+    defCard.innerHTML = `
+      <div style="background:var(--surface2); border-radius:12px; padding:15px; border-left:4px solid var(--accent)">
+        <p style="font-size:14px; margin-bottom:8px;">📊 <b>آپ کا انفرادی تجزیہ:</b></p>
+        
+        <div class="def-row">
+          <span>وزن برقرار رکھنے کے لیے (Normal TDEE):</span>
+          <span class="def-val"><b>${r.tdee} kcal</b></span>
+        </div>
+        
+        <div class="def-row">
+          <span>وزن کم کرنے کے لیے روزانہ کمی:</span>
+          <span class="def-val" style="color:var(--danger)">-${dailyDeficitNeeded} kcal</span>
+        </div>
+
+        <div class="divider"></div>
+
+        <p style="font-size:12px; color:var(--text2); line-height:1.6">
+          ہدف پانے کے لیے آپ کو روزانہ <b>${suggested}</b> کیلوریز کھانی ہوں گی۔ <br>
+          💡 <b>QA ٹپ:</b> اگر آپ <b>300 kcal</b> کی واک کر لیں، تو آپ <b>${suggested + 300}</b> کیلوریز کھا کر بھی اسی رفتار سے وزن کم کر سکتے ہیں!
+        </p>
+      </div>
+    `;
+  }
+}
+function updateNutrientPlan(calGoal) {
+  const r = userReqs;
+  const nutPlan = document.getElementById('nut-plan');
+  if(nutPlan) {
+    nutPlan.innerHTML = `<div style="display:grid;gap:5px">${
+      [[t('nutrients','calories'),`${calGoal} kcal`],
+       [t('nutrients','protein'),`${Math.round(calGoal*0.25/4)}g (25%)`],
+       [t('nutrients','carbs'),`${Math.round(calGoal*0.45/4)}g (45%)`],
+       [t('nutrients','fat'),`${Math.round(calGoal*0.30/9)}g (30%)`],
+       [t('nutrients','fiber'),`${r.fiber}g`],
+       [L==='ur'?'پانی':'Water',`${Math.round(r.waterMl/1000*10)/10}L`],
+      ].map(([l,v])=>`<div class="rep-row"><span class="rep-lbl">${l}</span><span style="font-family:'JetBrains Mono',monospace;color:var(--accent);font-size:12px">${v}</span></div>`).join('')
+    }</div>`;
+  }
+}
+
+function saveGoals() {
+  const manualInput = document.getElementById('g-manual-cal').value;
+  const suggested = parseInt(document.getElementById('g-cal').value);
+  const manualCal = parseInt(manualInput) || suggested; // اگر مینول خالی ہے تو تجویز کردہ سیو کرے گا
+  
+  const wt = parseFloat(document.getElementById('g-wt').value);
+  const days = parseInt(document.getElementById('g-days').value);
+
+  if (!manualCal || manualCal < 800) {
+    return alert(L === 'ur' ? '800 سے کم کیلوریز صحت کے لیے خطرناک ہیں' : 'Below 800 kcal is dangerous');
+  }
+
+  userGoals = {
+    calories: manualCal, 
+    manualCalories: manualCal,
+    targetWeight: wt,
+    durationDays: days
+  };
+
+  localStorage.setItem(`np_goals_${currentUser.email}`, JSON.stringify(userGoals));
+  refreshAll();
+  showToast(L === 'ur' ? '✅ ہدف اور مدت محفوظ!' : '✅ Goals and Duration Saved!');
+}
+
+function saveGoals() {
+  const manualCal = parseInt(document.getElementById('g-manual-cal').value);
+  const wt = parseFloat(document.getElementById('g-wt').value);
+  const days = parseInt(document.getElementById('g-days').value);
+
+  if (!manualCal || manualCal < 800) return alert(L === 'ur' ? '800 سے کم کیلوریز صحت کے لیے خطرناک ہیں' : 'Below 800 kcal is dangerous');
+
+  userGoals = {
+    calories: manualCal, // اب سسٹم آپ کی مینول کیلوریز کو ہی اصل ہدف مانے گا
+    manualCalories: manualCal,
+    targetWeight: wt,
+    durationDays: days
+  };
+
+  localStorage.setItem(`np_goals_${currentUser.email}`, JSON.stringify(userGoals));
+  refreshAll();
+  showToast(L === 'ur' ? '✅ ہدف اور مدت محفوظ!' : '✅ Goals and Duration Saved!');
 }
 
 // ============================================================
