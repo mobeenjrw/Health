@@ -10,7 +10,8 @@
 <title>NutriPak v3</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600;700&family=Noto+Sans+Arabic:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
@@ -723,6 +724,14 @@ body::before{
         <button class="btn" onclick="generateReport()" data-i="gen_report">📊 تجزیہ تیار کریں</button>
         <div class="analysis-text mt8" id="rep-analysis" style="display:none"></div>
       </div>
+      <div class="card">
+  <div class="card-title">📅 <span data-i="export_report">رپورٹ ایکسپورٹ کریں</span></div>
+  <div class="g2">
+    <div class="fg"><label>تاریخ سے</label><input type="date" id="rep-start" dir="ltr"></div>
+    <div class="fg"><label>تاریخ تک</label><input type="date" id="rep-end" dir="ltr"></div>
+  </div>
+  <button class="btn btn-ghost mt8" onclick="exportToPDF()">📑 PDF ڈاؤن لوڈ کریں</button>
+</div>
     </div>
 
     <!-- PROFILE TAB -->
@@ -2154,6 +2163,72 @@ window.addEventListener('load',()=>{
   if(s){try{const u=JSON.parse(s);if(!window._pendingFirebaseUser)loginUser(u);}catch(e){}}
   if(window._pendingFirebaseUser&&!window._appReady){loginUser(window._pendingFirebaseUser);}
 });
+async function exportToPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const start = document.getElementById('rep-start').value;
+  const end = document.getElementById('rep-end').value;
+
+  if (!start || !end) return alert(L === 'ur' ? 'براہ کرم تاریخیں منتخب کریں' : 'Please select dates');
+
+  // ہیڈر اور پروفائل معلومات
+  doc.setFontSize(20);
+  doc.text("NutriPak Health Report", 10, 20);
+  doc.setFontSize(10);
+  doc.text(`Patient Name: ${currentUser.name}`, 10, 30);
+  doc.text(`Age: ${currentUser.age} | Current Weight: ${currentUser.weight}kg | Target: ${userGoals.targetWeight}kg`, 10, 35);
+  doc.text(`Report Duration: ${start} to ${end}`, 10, 40);
+
+  let rows = [];
+  let currentDate = new Date(start);
+  const lastDate = new Date(end);
+
+  // تاریخوں کے درمیان ڈیٹا جمع کرنا
+  while (currentDate <= lastDate) {
+    const dk = currentDate.toISOString().split('T')[0];
+    const saved = localStorage.getItem(`np_log_${currentUser.email}_${dk}`);
+    
+    if (saved) {
+      const log = JSON.parse(saved);
+      const all = [...FDB, ...customFoods];
+      let dayCal = 0, dayPro = 0, dayEx = 0;
+      let foods = [];
+
+      // کھانوں کا حساب
+      Object.values(log.meals).forEach(m => m.forEach(it => {
+        const f = all.find(x => x.id === it.foodId);
+        if (f) {
+          dayCal += (f.c * it.grams / 100);
+          dayPro += (f.p * it.grams / 100);
+          foods.push(L === 'ur' ? f.n : f.e);
+        }
+      }));
+
+      // ایکسرسائز کا حساب
+      log.exercise.forEach(e => dayEx += e.burned);
+
+      rows.push([
+        dk, 
+        foods.join(', ').substring(0, 50) + "...", 
+        Math.round(dayCal), 
+        Math.round(dayPro) + "g", 
+        dayEx
+      ]);
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  // ٹیبل بنانا
+  doc.autoTable({
+    startY: 50,
+    head: [['Date', 'Foods Eaten', 'Calories', 'Protein', 'Exercise (Burn)']],
+    body: rows,
+    theme: 'striped'
+  });
+
+  doc.save(`NutriPak_Report_${currentUser.name}.pdf`);
+  showToast(L === 'ur' ? '✅ پی ڈی ایف تیار ہے!' : '✅ PDF Generated!');
+}
 </script>
 </body>
 </html>
