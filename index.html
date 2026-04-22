@@ -2139,22 +2139,27 @@ function renderReport(){
   </div>`;
 }
 
-async function generateReport(){
-  const tot=getTotals(),r=userReqs,u=currentUser,score=calcScore(tot,r);
-  const el=document.getElementById('rep-analysis');
-  el.style.display='block';el.textContent=L==='ur'?'تجزیہ تیار ہو رہا ہے...':'Generating...';
-  try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1200,messages:[{role:'user',
-        content:`Pakistani nutrition doctor. Analyze for ${u.name}, age ${u.age}, ${u.weight}kg, conditions: ${(u.conditions||[]).join(', ')||'none'}.
-        Calories: ${Math.round(tot.cal)}/${userGoals.calories||r.calories}, Protein: ${tot.protein}/${r.protein}g, Carbs: ${tot.carbs}/${r.carbs}g, Fat: ${tot.fat}/${r.fat}g, Fiber: ${tot.fiber}/${r.fiber}g.
-        Water: ${todayLog.water}/${r.waterGlasses} glasses. Exercise: ${todayLog.exercise.map(e=>(e.e||e.n)+' '+e.minutes+'min').join(', ')||'none'}. Score: ${score}/100.
-        Write in ${L==='ur'?'Urdu':'English'}: 1) What was good 2) What needs improvement 3) Three practical tips for tomorrow 4) Medical condition-specific advice.`
-      }]})});
-    const d=await resp.json();el.textContent=d.content[0].text;
-  }catch(e){el.textContent=L==='ur'?'خرابی آئی':'Error';}
-}
+async function generateReport() {
+  const tot = getTotals(), r = userReqs, u = currentUser, score = calcScore(tot, r);
+  const el = document.getElementById('rep-analysis');
+  el.style.display = 'block'; 
+  el.innerHTML = `<div class="loading-anim"><div class="dots"><span></span><span></span><span></span></div><span>${t('loading')}</span></div>`;
 
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `Analyze health for ${u.name}, age ${u.age}, conditions: ${(u.conditions||[]).join(', ')}. Today: Cal:${Math.round(tot.cal)}/${userGoals.calories}, Pro:${tot.protein}g, Score:${score}/100. Write a professional and encouraging health analysis in ${L==='ur'?'Urdu':'English'}. Use bullet points for advice.` }] }]
+      })
+    });
+    const data = await response.json();
+    el.textContent = data.candidates[0].content.parts[0].text;
+  } catch (e) { 
+    el.textContent = L === 'ur' ? 'تجزیہ تیار کرنے میں خرابی آئی' : 'Analysis Error'; 
+  }
+}
 // ============================================================
 // DASHBOARD SUMMARY & ALERTS
 // ============================================================
@@ -2194,26 +2199,27 @@ function renderDashSummary(){
 // ============================================================
 // ADVICE
 // ============================================================
-async function loadAdvice(){
-  const tot=getTotals(),r=userReqs,u=currentUser;
-  try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',
-        content:`Pakistani nutrition advisor. Patient: age ${u.age}, weight ${u.weight}kg, BMI ${r.bmi}, conditions: ${(u.conditions||[]).join(', ')||'none'}.
-        Today so far: ${Math.round(tot.cal)} kcal (goal ${userGoals.calories||r.calories}), protein ${tot.protein}g/${r.protein}g.
-        Write 2-3 sentences of warm, practical advice in ${L==='ur'?'Urdu (Nastaliq)':'English'}.`
-      }]})});
-    const d=await resp.json();
-    document.getElementById('advice-loading').style.display='none';
-    document.getElementById('advice-text').style.display='block';
-    document.getElementById('advice-text').textContent=d.content[0].text;
-  }catch{
-    document.getElementById('advice-loading').style.display='none';
-    document.getElementById('advice-text').style.display='block';
-    document.getElementById('advice-text').textContent=L==='ur'?'کھانا لاگ کریں اور مشورہ حاصل کریں۔':'Log your meals to receive personalized advice.';
+async function loadAdvice() {
+  const tot = getTotals(), r = userReqs, u = currentUser;
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `You are a warm Pakistani nutrition advisor. Patient: age ${u.age}, weight ${u.weight}kg, conditions: ${(u.conditions||[]).join(', ')||'none'}. Today so far: ${Math.round(tot.cal)} kcal (goal ${userGoals.calories||r.calories}). Write 2 sentences of friendly, practical advice in ${L==='ur'?'Urdu':'English'}.` }] }]
+      })
+    });
+    const data = await response.json();
+    document.getElementById('advice-loading').style.display = 'none';
+    document.getElementById('advice-text').style.display = 'block';
+    document.getElementById('advice-text').textContent = data.candidates[0].content.parts[0].text;
+  } catch (e) {
+    document.getElementById('advice-loading').style.display = 'none';
+    document.getElementById('advice-text').style.display = 'block';
+    document.getElementById('advice-text').textContent = L === 'ur' ? 'کھانا لاگ کریں اور مشورہ حاصل کریں۔' : 'Log your meals to receive advice.';
   }
 }
-
 // ============================================================
 // TAB NAVIGATION
 // ============================================================
