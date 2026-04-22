@@ -1318,33 +1318,74 @@ function calcReqs(u){
 }
 
 function getTotals(){
-  let r={cal:0,protein:0,carbs:0,fat:0,fiber:0,sodium:0};
-  const all=[...FDB,...customFoods];
-  Object.values(todayLog.meals).forEach(items=>items.forEach(it=>{
-    const f=all.find(x=>x.id===it.foodId);if(!f)return;
-    const fc=it.grams/100;
-    r.cal+=f.c*fc;r.protein+=f.p*fc;r.carbs+=f.cb*fc;
-    r.fat+=f.f*fc;r.fiber+=(f.fi||0)*fc;r.sodium+=(f.s||0)*fc;
-  }));
-  todayLog.beverages.forEach(b=>{r.cal+=b.cal;});
-  Object.keys(r).forEach(k=>{r[k]=Math.round(r[k]*10)/10;});
-  let burned=0;todayLog.exercise.forEach(e=>burned+=e.burned||0);
-  r.exerciseBurn=burned;r.netCal=Math.round(r.cal-burned);
+  let r={cal:0, protein:0, carbs:0, fat:0, fiber:0, sodium:0};
+  const all=[...FDB, ...customFoods];
+  
+  Object.values(todayLog.meals).forEach(items => {
+    if (items && Array.isArray(items)) {
+      items.forEach(it => {
+        const f = all.find(x => x.id === it.foodId);
+        if (!f) return;
+        
+        const fc = (it.grams || 0) / 100;
+        
+        // یہاں ہم (f.c || 0) استعمال کر رہے ہیں تاکہ اگر ویلیو نہ ہو تو 0 مانی جائے
+        r.cal += (f.c || 0) * fc;
+        r.protein += (f.p || 0) * fc;
+        r.carbs += (f.cb || 0) * fc;
+        r.fat += (f.f || 0) * fc;
+        r.fiber += (f.fi || 0) * fc;
+        r.sodium += (f.s || 0) * fc;
+      });
+    }
+  });
+
+  // مشروبات کا حساب
+  if (todayLog.beverages) {
+    todayLog.beverages.forEach(b => {
+      r.cal += (b.cal || 0);
+    });
+  }
+
+  // راؤنڈنگ (Rounding)
+  Object.keys(r).forEach(k => {
+    r[k] = Math.round(r[k] * 10) / 10;
+  });
+
+  // ورزش کا حساب
+  let burned = 0;
+  if (todayLog.exercise) {
+    todayLog.exercise.forEach(e => {
+      burned += (e.burned || 0);
+    });
+  }
+  
+  r.exerciseBurn = burned;
+  // یہاں نیٹ کیلوریز کا حساب
+  r.netCal = Math.round((r.cal || 0) - burned);
+  
   return r;
 }
 
-function calcScore(tot,r){
-  const gc=userGoals.calories||r.calories;
-  let s=100;
-  const cd=Math.abs(tot.cal-gc)/gc;s-=Math.min(20,cd*100);
-  if(tot.protein<r.protein*.8)s-=20;
-  if(tot.fiber<r.fiber*.7)s-=15;
-  if(tot.carbs>r.carbs*1.2)s-=15;
-  if(todayLog.water<r.waterGlasses*.6)s-=10;
-  if(todayLog.exercise.length===0)s-=10;
-  return Math.max(0,Math.round(s));
-}
+function calcScore(tot, r_req){
+  // اگر یوزر کا اپنا ہدف نہیں ہے تو ضرورت (Requirement) والے ہدف کو استعمال کریں
+  const gc = userGoals.calories || r_req.calories || 2000; 
+  if (gc === 0) return 0; // صفر سے تقسیم ہونے سے بچنے کے لیے
 
+  let s = 100;
+  const cd = Math.abs((tot.cal || 0) - gc) / gc;
+  s -= Math.min(20, cd * 100);
+  
+  // چیک کریں کہ نیوٹرنٹس موجود ہیں
+  if ((tot.protein || 0) < (r_req.protein || 50) * 0.8) s -= 20;
+  if ((tot.fiber || 0) < (r_req.fiber || 25) * 0.7) s -= 15;
+  if ((tot.carbs || 0) > (r_req.carbs || 250) * 1.2) s -= 15;
+  
+  if ((todayLog.water || 0) < (r_req.waterGlasses || 8) * 0.6) s -= 10;
+  if (!todayLog.exercise || todayLog.exercise.length === 0) s -= 10;
+  
+  return Math.max(0, Math.round(s));
+}
 // ============================================================
 // FIREBASE SAVE
 // ============================================================
