@@ -10,8 +10,7 @@
 <title>NutriPak v3</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600;700&family=Noto+Sans+Arabic:wght@300;400;600;700&family=JetBrains+Mono:wght@400;600&family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
@@ -298,12 +297,11 @@ body::before{
 .water-container{padding:8px 0}
 .water-label{font-size:12px;color:var(--text3);margin-bottom:10px}
 .water-grid{
-  display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
-  max-width:320px;
-  margin-bottom:4px;
+  display:grid;grid-template-columns:repeat(4,1fr);gap:12px;
+  max-width:300px;
 }
 .wglass{
-  aspect-ratio:2/3;min-height:50px;border:2.5px solid var(--border);
+  aspect-ratio:2/3;border:2.5px solid var(--border);
   border-radius:4px 4px 12px 12px;cursor:pointer;
   position:relative;overflow:hidden;transition:border-color .25s;
   background:var(--surface2);
@@ -316,11 +314,11 @@ body::before{
 .wglass.filled{border-color:var(--water-border);}
 .wglass.filled::after{
   content:'';position:absolute;bottom:0;left:0;right:0;
-  height:100%;background:var(--water-fill);transform-origin:bottom;
+  height:100%;background:var(--water-fill);
   animation:fill-up .35s ease forwards;
 }
 .wglass.filled::before{opacity:0}
-@keyframes fill-up{from{transform:scaleY(0);transform-origin:bottom}to{transform:scaleY(1);transform-origin:bottom}}
+@keyframes fill-up{from{height:0}to{height:100%}}
 .water-stats{margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .water-count{font-family:'JetBrains Mono',monospace;font-size:22px;font-weight:700;color:#38bdf8}
 .water-ml{font-size:12px;color:var(--text3)}
@@ -411,6 +409,36 @@ body::before{
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* ===== DATE IN FOOD MODAL ===== */
+.fm-date-row{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;padding:10px 13px;margin-bottom:12px;
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+}
+.fm-date-row input[type=date]{
+  background:transparent;border:none;color:var(--text);
+  font-size:13px;font-family:'JetBrains Mono',monospace;
+  outline:none;cursor:pointer;flex:1;min-width:130px;
+}
+.fm-date-row input[type=date]::-webkit-calendar-picker-indicator{
+  filter:invert(1);opacity:.5;cursor:pointer;
+}
+[data-theme="light"] .fm-date-row input[type=date]::-webkit-calendar-picker-indicator{
+  filter:none;opacity:.6;
+}
+.fm-date-lbl{font-size:11px;color:var(--text3);white-space:nowrap;}
+.fm-date-today{
+  padding:4px 9px;border-radius:6px;font-size:11px;font-weight:700;
+  background:rgba(34,197,94,.12);color:var(--accent);
+  border:1px solid rgba(34,197,94,.25);cursor:pointer;white-space:nowrap;
+}
+.fm-date-today:hover{background:rgba(34,197,94,.25);}
+.fm-past-note{
+  width:100%;font-size:11px;color:var(--warn);
+  display:flex;align-items:center;gap:5px;
+}
+
 </style>
 </head>
 <body>
@@ -724,14 +752,6 @@ body::before{
         <button class="btn" onclick="generateReport()" data-i="gen_report">📊 تجزیہ تیار کریں</button>
         <div class="analysis-text mt8" id="rep-analysis" style="display:none"></div>
       </div>
-      <div class="card">
-  <div class="card-title">📅 <span data-i="export_report">رپورٹ ایکسپورٹ کریں</span></div>
-  <div class="g2">
-    <div class="fg"><label>تاریخ سے</label><input type="date" id="rep-start" dir="ltr"></div>
-    <div class="fg"><label>تاریخ تک</label><input type="date" id="rep-end" dir="ltr"></div>
-  </div>
-  <button class="btn btn-ghost mt8" onclick="exportToPDF()">📑 PDF ڈاؤن لوڈ کریں</button>
-</div>
     </div>
 
     <!-- PROFILE TAB -->
@@ -759,7 +779,18 @@ body::before{
     <div id="fm-name" style="font-size:14px;color:var(--accent);font-weight:700;margin-bottom:12px"></div>
     <!-- Medical warning -->
     <div id="fm-warning" style="display:none" class="alert a-warn">⚠️ <span id="fm-warning-text"></span></div>
-    <div class="fg"><label data-i="meal_time">وقت</label>
+
+    <!-- DATE PICKER -->
+    <div class="fm-date-row">
+      <span class="fm-date-lbl">📅</span>
+      <input type="date" id="fm-date" onchange="onFmDateChange()">
+      <button class="fm-date-today" onclick="setFmDateToday()" id="fm-today-btn" style="display:none">↩ آج</button>
+      <div class="fm-past-note" id="fm-past-note" style="display:none">
+        ⚠️ <span id="fm-past-text">ماضی کی تاریخ</span>
+      </div>
+    </div>
+
+    <div class="fg"><label data-i="meal_time">کھانے کا وقت</label>
       <select id="fm-meal">
         <option value="breakfast" data-i="breakfast">ناشتہ 🌅</option>
         <option value="lunch" data-i="lunch">دوپہر 🌞</option>
@@ -1317,17 +1348,21 @@ function calcScore(tot,r){
 // ============================================================
 // FIREBASE SAVE
 // ============================================================
-async function saveLog(){
-  const dk=new Date().toISOString().split('T')[0];
-  const lk=`np_log_${currentUser.email}_${dk}`;
-  localStorage.setItem(lk,JSON.stringify(todayLog));
-  // Save to Firestore
+// saveDateLog saves a specific date's log object
+async function saveDateLog(date, logObj){
+  const lk=`np_log_${currentUser.email}_${date}`;
+  localStorage.setItem(lk,JSON.stringify(logObj));
   try{
     if(window._fbDb&&currentUser.uid){
       const {doc,setDoc}=window._fbFns;
-      await setDoc(doc(window._fbDb,'logs',`${currentUser.uid}_${dk}`),{...todayLog,date:dk,uid:currentUser.uid},{merge:true});
+      await setDoc(doc(window._fbDb,'logs',`${currentUser.uid}_${date}`),{...logObj,date,uid:currentUser.uid},{merge:true});
     }
   }catch(e){}
+}
+// saveLog saves TODAY's todayLog (used by water, exercise, beverages)
+async function saveLog(){
+  const dk=new Date().toISOString().split('T')[0];
+  await saveDateLog(dk, todayLog);
 }
 
 // ============================================================
@@ -1441,7 +1476,7 @@ function quickAdd(foodId,grams){
   const meal=document.getElementById('fm-meal').value;
   todayLog.meals[meal].push({foodId,grams});
   saveLog();refreshAll();
-  showToast(L==='ur'?'✅ ایڈ ہو گیا!':'✅ Added!');
+  showToast(L==='ur'?'✅ آج میں ایڈ ہو گیا!':'✅ Added to today!');
 }
 
 function showToast(msg){
@@ -1547,6 +1582,7 @@ function openFoodModal(){
     wEl.style.display='flex';
     document.getElementById('fm-warning-text').textContent=t('sugar_warning');
   }else{wEl.style.display='none';}
+  initFmDate();
   updatePreview();
   document.getElementById('food-modal').classList.add('open');
 }
@@ -1572,18 +1608,46 @@ function confirmFood(){
   const qty=parseFloat(document.getElementById('fm-qty').value)||0;
   const unit=document.getElementById('fm-unit').value;
   const meal=document.getElementById('fm-meal').value;
+  const entryDate=document.getElementById('fm-date').value||new Date().toISOString().split('T')[0];
   let g=qty;
   if(unit==='piece')g=qty*(selFood.g||100);
   else if(unit==='tbsp')g=qty*15;
   else if(unit==='cup')g=qty*240;
-  // Add oil if toggled
-  if(document.getElementById('oil-chk').checked){
-    const oilType=document.getElementById('oil-type').value;
-    const oilTbsp=parseFloat(document.getElementById('oil-tbsp').value)||0;
-    if(oilTbsp>0){todayLog.meals[meal].push({foodId:oilType,grams:Math.round(oilTbsp*14)});}
+  g=Math.round(g);
+
+  const todayKey=new Date().toISOString().split('T')[0];
+
+  if(entryDate===todayKey){
+    // Adding to today — use todayLog directly
+    if(document.getElementById('oil-chk').checked){
+      const oilType=document.getElementById('oil-type').value;
+      const oilTbsp=parseFloat(document.getElementById('oil-tbsp').value)||0;
+      if(oilTbsp>0) todayLog.meals[meal].push({foodId:oilType,grams:Math.round(oilTbsp*14)});
+    }
+    todayLog.meals[meal].push({foodId:selFood.id,grams:g});
+    saveLog();
+    closeModal('food-modal');
+    refreshAll();
+    showToast(L==='ur'?'✅ آج میں ایڈ ہو گیا!':'✅ Added to today!');
+  } else {
+    // Adding to a past date — load that day's log, add, save back
+    const lk=`np_log_${currentUser.email}_${entryDate}`;
+    const saved=localStorage.getItem(lk);
+    const pastLog=saved?JSON.parse(saved):{meals:{breakfast:[],lunch:[],dinner:[],snack:[]},exercise:[],water:0,beverages:[]};
+    if(document.getElementById('oil-chk').checked){
+      const oilType=document.getElementById('oil-type').value;
+      const oilTbsp=parseFloat(document.getElementById('oil-tbsp').value)||0;
+      if(oilTbsp>0) pastLog.meals[meal].push({foodId:oilType,grams:Math.round(oilTbsp*14)});
+    }
+    pastLog.meals[meal].push({foodId:selFood.id,grams:g});
+    saveDateLog(entryDate, pastLog);
+    closeModal('food-modal');
+    const d=new Date(entryDate+'T12:00:00');
+    const dateStr=d.toLocaleDateString(L==='ur'?'ur-PK':'en-PK',{day:'numeric',month:'short'});
+    showToast((L==='ur'?`✅ ${dateStr} میں ایڈ ہو گیا!`:`✅ Added to ${dateStr}!`));
+    // If dashboard is showing, refresh chart
+    render7DayChart();
   }
-  todayLog.meals[meal].push({foodId:selFood.id,grams:Math.round(g)});
-  saveLog();closeModal('food-modal');refreshAll();
 }
 
 function removeFood(meal,idx){todayLog.meals[meal].splice(idx,1);saveLog();refreshAll();}
@@ -1611,43 +1675,84 @@ function saveCustomFood(){
   closeModal('custom-modal');showToast(L==='ur'?'✅ محفوظ!':'✅ Saved!');
 }
 
-// AI SEARCH
+// ============================================================
+// GEMINI AI INTEGRATION (FREE API)
+// ============================================================
+const GEMINI_API_KEY = "AIzaSyAbLvkg1LFyiJ38L1jJutdjz_K6MEZ3ubU";
+
+// 1. AI Food Search
 function openAIModal(){document.getElementById('ai-modal').classList.add('open');}
+
 async function doAISearch(){
-  const q=document.getElementById('ai-query').value.trim();if(!q)return;
-  const el=document.getElementById('ai-result');
-  el.style.display='block';
-  el.innerHTML=`<div class="loading-anim"><div class="dots"><span></span><span></span><span></span></div><span>${t('loading')}</span></div>`;
-  try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',
-        content:`Pakistani/Indian food nutrition expert. Give per-100g nutrition for: "${q}". Reply ONLY in JSON (no markdown):
-        {"name":"Urdu name","nameEn":"English name","cal":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sodium":number,"notes":"Urdu note max 20 words"}`
-      }]})});
-    const d=await resp.json();
-    let food;try{food=JSON.parse(d.content[0].text.replace(/```json|```/g,'').trim());}
-    catch{const m=d.content[0].text.match(/\{[\s\S]*\}/);food=JSON.parse(m[0]);}
-    el.innerHTML=`<div style="background:var(--surface2);border-radius:12px;padding:12px;">
-      <div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:8px">${L==='ur'?food.name:food.nameEn}</div>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;margin-bottom:10px">
-        <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--accent)">${food.cal}</div><div style="font-size:9px;color:var(--text3)">kcal</div></div>
-        <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#60a5fa">${food.protein}g</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'پروٹین':'Protein'}</div></div>
-        <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#f59e0b">${food.carbs}g</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'کاربز':'Carbs'}</div></div>
-        <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#ef4444">${food.fat}g</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'فیٹ':'Fat'}</div></div>
-        <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#34d399">${food.fiber}g</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'فائبر':'Fiber'}</div></div>
-        <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#a78bfa">${food.sodium}mg</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'سوڈیم':'Sodium'}</div></div>
-      </div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${food.notes||''}</div>
-      <div style="display:flex;gap:8px">
-        <button class="btn" style="flex:1" onclick="addAIFood(${JSON.stringify(food).replace(/"/g,"'")})">${t('add_to_log')}</button>
-        <button class="btn-sm" onclick="saveAIFood(${JSON.stringify(food).replace(/"/g,"'")})">${t('save_db')}</button>
-      </div>
-    </div>`;
-  }catch(e){el.innerHTML=`<div class="alert a-danger">${L==='ur'?'خرابی آئی':'Error: '+e.message}</div>`;}
+  const q = document.getElementById('ai-query').value.trim();
+  if(!q) return;
+  const el = document.getElementById('ai-result');
+  el.style.display = 'block';
+  el.innerHTML = `<div class="loading-anim"><div class="dots"><span></span><span></span><span></span></div><span>${t('loading')}</span></div>`;
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `You are a Pakistani nutrition expert. Give per-100g nutrition for: "${q}". Reply ONLY in JSON format: {"name":"Urdu name","nameEn":"English name","cal":number,"protein":number,"carbs":number,"fat":number,"fiber":number,"sodium":number,"notes":"Urdu note max 20 words"}` }] }]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.candidates[0].content.parts[0].text;
+    const cleanJson = text.replace(/```json|```/g, "").trim();
+    const food = JSON.parse(cleanJson);
+
+    el.innerHTML = `
+      <div style="background:var(--surface2);border-radius:12px;padding:12px;">
+        <div style="font-size:14px;font-weight:700;color:var(--accent);margin-bottom:8px">${L==='ur'?food.name:food.nameEn}</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center;margin-bottom:10px">
+          <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--accent)">${food.cal}</div><div style="font-size:9px;color:var(--text3)">kcal</div></div>
+          <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#60a5fa">${food.protein}g</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'پروٹین':'Protein'}</div></div>
+          <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#f59e0b">${food.carbs}g</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'کاربز':'Carbs'}</div></div>
+          <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#ef4444">${food.fat}g</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'فیٹ':'Fat'}</div></div>
+          <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#34d399">${food.fiber}g</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'فائبر':'Fiber'}</div></div>
+          <div><div style="font-family:'JetBrains Mono',monospace;font-size:16px;color:#a78bfa">${food.sodium}mg</div><div style="font-size:9px;color:var(--text3)">${L==='ur'?'سوڈیم':'Sodium'}</div></div>
+        </div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${food.notes||''}</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn" style="flex:1" onclick="addAIFood(${JSON.stringify(food).replace(/"/g,"'")})">${t('add_to_log')}</button>
+          <button class="btn-sm" onclick="saveAIFood(${JSON.stringify(food).replace(/"/g,"'")})">${t('save_db')}</button>
+        </div>
+      </div>`;
+  } catch (e) {
+    el.innerHTML = `<div class="alert a-danger">${L==='ur'?'رابطہ نہیں ہو سکا یا ڈیٹا نہیں ملا':'AI Connection Failed'}</div>`;
+  }
 }
+
 function addAIFood(fd){const f={...fd,id:'ai_'+Date.now(),n:fd.name,e:fd.nameEn,c:fd.cal,p:fd.protein,cb:fd.carbs,f:fd.fat,fi:fd.fiber,s:fd.sodium,per:'g',custom:true};customFoods.push(f);selFood=f;closeModal('ai-modal');openFoodModal();}
+
 function saveAIFood(fd){const f={...fd,id:'ai_'+Date.now(),n:fd.name,e:fd.nameEn,c:fd.cal,p:fd.protein,cb:fd.carbs,f:fd.fat,fi:fd.fiber,s:fd.sodium,per:'g',custom:true};customFoods.push(f);localStorage.setItem(`np_cf_${currentUser.email}`,JSON.stringify(customFoods));showToast(L==='ur'?'✅ محفوظ!':'✅ Saved!');}
 
+// 2. AI Report Analysis
+async function generateReport() {
+  const tot = getTotals(), r = userReqs, u = currentUser, score = calcScore(tot, r);
+  const el = document.getElementById('rep-analysis');
+  el.style.display = 'block'; 
+  el.innerHTML = `<div class="loading-anim"><div class="dots"><span></span><span></span><span></span></div><span>${t('loading')}</span></div>`;
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: `Analyze health for ${u.name}, age ${u.age}, conditions: ${(u.conditions||[]).join(', ')}. Today: Cal:${Math.round(tot.cal)}/${userGoals.calories}, Pro:${tot.protein}g, Score:${score}/100. Write a professional and encouraging health analysis in ${L==='ur'?'Urdu':'English'}. Use bullet points for advice.` }] }]
+      })
+    });
+    const data = await response.json();
+    el.textContent = data.candidates[0].content.parts[0].text;
+  } catch (e) { 
+    el.textContent = L === 'ur' ? 'تجزیہ تیار کرنے میں خرابی آئی' : 'Analysis Error'; 
+  }
+}
 // ============================================================
 // EXERCISE
 // ============================================================
@@ -1663,7 +1768,7 @@ function renderExGrid(){
   document.getElementById('ex-log').innerHTML=exLog.length===0
     ?`<div style="color:var(--text3);font-size:12px;text-align:center;padding:8px">${t('no_exercise')}</div>`
     :exLog.map((e,i)=>`<div class="ex-log-item">
-        <div class="eli-name">${e.i} ${L==='ur'?e.n:(e.e||e.n)} — ${e.minutes||'?'} ${L==='ur'?'منٹ':'min'}</div>
+        <div class="eli-name">${e.i} ${L==='ur'?e.n:e.e||e.n} — ${e.minutes} ${L==='ur'?'منٹ':'min'}</div>
         <div style="display:flex;align-items:center;gap:8px">
           <span class="eli-cal">-${e.burned} kcal</span>
           <button class="del-btn" onclick="removeEx(${i})">✕</button>
@@ -1763,10 +1868,10 @@ function renderBeverages(){
   document.getElementById('bev-grid').innerHTML=BEVERAGES.map(b=>{
     const hasDm=currentUser?.conditions?.some(c=>['diabetes','prediabetic'].includes(c));
     const warn=hasDm&&b.highSugar?'⚠️':'';
-    return`<div class="bev-card" onclick="addBev('${b.id}','${L==='ur'?b.n:b.e}',${b.c})">
+    return`<div class="bev-card" onclick="addBev('${b.id}','${L==='ur'?b.n:b.e}',${b.cal})">
       <div class="bev-icon">${b.i}</div>
       <div class="bev-name">${warn}${L==='ur'?b.n:b.e}</div>
-      <div class="bev-cal">${b.c} kcal</div>
+      <div class="bev-cal">${b.c||b.cal} kcal</div>
     </div>`;}).join('');
   document.getElementById('bev-log').innerHTML=todayLog.beverages.length===0?'':
     todayLog.beverages.map((b,i)=>`<div class="ex-log-item">
@@ -2157,78 +2262,48 @@ if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js').catch(()=>{});
 }
 
+
+// ============================================================
+// FOOD MODAL — DATE HANDLING
+// ============================================================
+function initFmDate(){
+  const el=document.getElementById('fm-date');
+  const todayStr=new Date().toISOString().split('T')[0];
+  el.value=todayStr;
+  el.max=todayStr; // no future dates
+  document.getElementById('fm-today-btn').style.display='none';
+  document.getElementById('fm-past-note').style.display='none';
+}
+
+function onFmDateChange(){
+  const val=document.getElementById('fm-date').value;
+  const todayStr=new Date().toISOString().split('T')[0];
+  const isPast=val&&val<todayStr;
+  document.getElementById('fm-today-btn').style.display=isPast?'inline-block':'none';
+  const noteEl=document.getElementById('fm-past-note');
+  const pastText=document.getElementById('fm-past-text');
+  if(isPast){
+    noteEl.style.display='flex';
+    const d=new Date(val+'T12:00:00');
+    const dateStr=d.toLocaleDateString(L==='ur'?'ur-PK':'en-PK',{weekday:'long',day:'numeric',month:'long'});
+    pastText.textContent=L==='ur'?`${dateStr} کا کھانا`:`Entry for ${dateStr}`;
+  } else {
+    noteEl.style.display='none';
+  }
+}
+
+function setFmDateToday(){
+  const todayStr=new Date().toISOString().split('T')[0];
+  document.getElementById('fm-date').value=todayStr;
+  onFmDateChange();
+}
+
 // Restore session
 window.addEventListener('load',()=>{
   const s=localStorage.getItem('np_current');
   if(s){try{const u=JSON.parse(s);if(!window._pendingFirebaseUser)loginUser(u);}catch(e){}}
   if(window._pendingFirebaseUser&&!window._appReady){loginUser(window._pendingFirebaseUser);}
 });
-async function exportToPDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  const start = document.getElementById('rep-start').value;
-  const end = document.getElementById('rep-end').value;
-
-  if (!start || !end) return alert(L === 'ur' ? 'براہ کرم تاریخیں منتخب کریں' : 'Please select dates');
-
-  // ہیڈر اور پروفائل معلومات
-  doc.setFontSize(20);
-  doc.text("NutriPak Health Report", 10, 20);
-  doc.setFontSize(10);
-  doc.text(`Patient Name: ${currentUser.name}`, 10, 30);
-  doc.text(`Age: ${currentUser.age} | Current Weight: ${currentUser.weight}kg | Target: ${userGoals.targetWeight}kg`, 10, 35);
-  doc.text(`Report Duration: ${start} to ${end}`, 10, 40);
-
-  let rows = [];
-  let currentDate = new Date(start);
-  const lastDate = new Date(end);
-
-  // تاریخوں کے درمیان ڈیٹا جمع کرنا
-  while (currentDate <= lastDate) {
-    const dk = currentDate.toISOString().split('T')[0];
-    const saved = localStorage.getItem(`np_log_${currentUser.email}_${dk}`);
-    
-    if (saved) {
-      const log = JSON.parse(saved);
-      const all = [...FDB, ...customFoods];
-      let dayCal = 0, dayPro = 0, dayEx = 0;
-      let foods = [];
-
-      // کھانوں کا حساب
-      Object.values(log.meals).forEach(m => m.forEach(it => {
-        const f = all.find(x => x.id === it.foodId);
-        if (f) {
-          dayCal += (f.c * it.grams / 100);
-          dayPro += (f.p * it.grams / 100);
-          foods.push(L === 'ur' ? f.n : f.e);
-        }
-      }));
-
-      // ایکسرسائز کا حساب
-      log.exercise.forEach(e => dayEx += e.burned);
-
-      rows.push([
-        dk, 
-        foods.join(', ').substring(0, 50) + "...", 
-        Math.round(dayCal), 
-        Math.round(dayPro) + "g", 
-        dayEx
-      ]);
-    }
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-
-  // ٹیبل بنانا
-  doc.autoTable({
-    startY: 50,
-    head: [['Date', 'Foods Eaten', 'Calories', 'Protein', 'Exercise (Burn)']],
-    body: rows,
-    theme: 'striped'
-  });
-
-  doc.save(`NutriPak_Report_${currentUser.name}.pdf`);
-  showToast(L === 'ur' ? '✅ پی ڈی ایف تیار ہے!' : '✅ PDF Generated!');
-}
 </script>
 </body>
 </html>
