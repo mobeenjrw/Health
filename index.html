@@ -1774,10 +1774,21 @@ function saveAIFood(fd){const f={...fd,id:'ai_'+Date.now(),n:fd.name,e:fd.nameEn
 
 // 2. AI Report Analysis
 async function generateReport() {
-  const tot = getTotals(), r = userReqs, u = currentUser, score = calcScore(tot, r);
+  const tot = getTotals();
+  const r = userReqs;
+  const u = currentUser;
+  const score = calcScore(tot, r);
   const el = document.getElementById('rep-analysis');
+  
   el.style.display = 'block'; 
   el.innerHTML = `<div class="loading-anim"><div class="dots"><span></span><span></span><span></span></div><span>${t('loading')}</span></div>`;
+
+  // ڈیٹا کو ٹیکسٹ فارمیٹ میں تیار کریں تاکہ اے آئی آسانی سے سمجھ سکے
+  const promptText = `Analyze health for ${u.name}. 
+  Age: ${u.age}, Conditions: ${(u.conditions || []).join(', ')}. 
+  Today's Progress: Calories consumed: ${Math.round(tot.cal)}, Goal: ${userGoals.calories}, 
+  Protein: ${tot.protein}g, Score: ${score}/100. 
+  Please provide a professional health analysis in ${L === 'ur' ? 'Urdu' : 'English'}.`;
 
   try {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
@@ -1785,13 +1796,19 @@ async function generateReport() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `Analyze health for ${u.name}, age ${u.age}, conditions: ${(u.conditions||[]).join(', ')}. Today: Cal:${Math.round(tot.cal)}/${userGoals.calories}, Pro:${tot.protein}g, Score:${score}/100. Write a professional and encouraging health analysis in ${L==='ur'?'Urdu':'English'}. Use bullet points for advice.` }] }]
+        contents: [{ parts: [{ text: promptText }] }]
       })
     });
+    
     const data = await response.json();
-    el.textContent = data.candidates[0].content.parts[0].text;
+    if (data.candidates && data.candidates[0].content.parts[0].text) {
+      el.textContent = data.candidates[0].content.parts[0].text;
+    } else {
+      throw new Error("Invalid response");
+    }
   } catch (e) { 
-    el.textContent = L === 'ur' ? 'تجزیہ تیار کرنے میں خرابی آئی' : 'Analysis Error'; 
+    console.error("AI Error:", e);
+    el.textContent = L === 'ur' ? 'تجزیہ تیار کرنے میں خرابی آئی۔ براہ کرم انٹرنیٹ چیک کریں۔' : 'Analysis Error. Please check connection.'; 
   }
 }
 // ============================================================
